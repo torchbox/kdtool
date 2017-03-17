@@ -5,6 +5,7 @@
 # deployment, service and ingress.
 
 import argparse, json, subprocess, humanfriendly
+from base64 import b64encode
 
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
 parser.add_argument('-N', '--namespace', type=str, default="default", help='Kubernetes namespace to deploy in')
@@ -17,6 +18,7 @@ parser.add_argument('-A', '--acme', action='store_true', help='Issue Let\'s Encr
 parser.add_argument('-r', '--replicas', type=int, default=1, help="Number of replicas to create")
 parser.add_argument('-P', '--image-pull-policy', type=str, choices=('IfNotPresent', 'Always'), default='IfNotPresent', help="Image pull policy")
 parser.add_argument('-e', '--env', type=str, action='append', default=[], metavar='VARNAME=VALUE', help="Set environment variable")
+parser.add_argument('-s', '--secret', type=str, action='append', default=[], metavar='VARNAME=VALUE', help="Set secret environment variable")
 parser.add_argument('-v', '--volume', type=str, action='append', default=[], metavar='PATH', help="Attach persistent filesystem storage at PATH")
 parser.add_argument('-p', '--port', type=int, default=80, help="HTTP port the application listens on")
 parser.add_argument('-j', '--json', action='store_true', help="Print JSON instead of applying to cluster")
@@ -37,14 +39,39 @@ labels = {
 }
 
 environment = []
-for env in args.env:
-  (var, value) = env.split('=', 1)
-  environment.append({ 'name': var, 'value': value })
-
 items = []
 containers = []
 volumes = []
 volume_mounts = []
+
+secrets = {
+  'apiVersion': 'v1',
+  'kind': 'Secret',
+  'metadata': {
+    'name': args.name,
+    'namespace': args.namespace,
+  },
+  'data': {}
+}
+
+for env in args.env:
+  (var, value) = env.split('=', 1)
+  environment.append({ 'name': var, 'value': value })
+
+for secret in args.secret:
+  (var, value) = secret.split('=', 1)
+  environment.append({
+    'name': var,
+    'valueFrom': {
+      'secretKeyRef': {
+        'name': args.name,
+        'key': var,
+      },
+    },
+  })
+  secrets['data'][var] = b64encode(value.encode('utf-8')).decode('ascii')
+
+items.append(secrets)
 
 # Add Postgres if requested
 if args.postgres is not None:
@@ -257,9 +284,6 @@ if len(args.hostname) > 0:
     } for hostname in args.hostname]
 
   items.append(ingress)
-
-
-
 
 spec = json.dumps(
   {
