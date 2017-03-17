@@ -1,25 +1,29 @@
 #! /usr/bin/env python3
 # vim:set sw=2 ts=2 et:
 
-# Create Kubernetes deployment manifests for a typical web application: 
+# Create Kubernetes deployment manifests for a typical web application:
 # deployment, service and ingress.
 
 import argparse, json, subprocess, humanfriendly
 
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
 parser.add_argument('-N', '--namespace', type=str, default="default", help='Kubernetes namespace to deploy in')
-parser.add_argument('-S', '--server', type=str, help="Kubernetes API server URL")
+parser.add_argument('-S', '--server', type=str, metavar='URL', help="Kubernetes API server URL")
 parser.add_argument('-T', '--token', type=str, help="Kubernetes authentication token")
 parser.add_argument('-C', '--ca-certificate', type=str, help="Kubernetes API server CA certificate")
+parser.add_argument('-G', '--gitlab', action='store_true', help="Configure Kubernetes from Gitlab CI")
 parser.add_argument('-H', '--hostname', type=str, action='append', default=[], help='Hostname to expose the application on')
 parser.add_argument('-A', '--acme', action='store_true', help='Issue Let\'s Encrypt (ACME) TLS certificate')
 parser.add_argument('-r', '--replicas', type=int, default=1, help="Number of replicas to create")
 parser.add_argument('-P', '--image-pull-policy', type=str, choices=('IfNotPresent', 'Always'), default='IfNotPresent', help="Image pull policy")
-parser.add_argument('-e', '--env', type=str, action='append', default=[], help="Set environment variable (VAR=VALUE)")
+parser.add_argument('-e', '--env', type=str, action='append', default=[], metavar='VARNAME=VALUE', help="Set environment variable")
+parser.add_argument('-v', '--volume', type=str, action='append', default=[], metavar='PATH', help="Attach persistent filesystem storage at PATH")
 parser.add_argument('-p', '--port', type=int, default=80, help="HTTP port the application listens on")
 parser.add_argument('-j', '--json', action='store_true', help="Print JSON instead of applying to cluster")
 parser.add_argument('-U', '--undeploy', action='store_true', help="Remove existing application")
 parser.add_argument('-n', '--dry-run', action='store_true', help="Pass --dry-run to kubectl")
+parser.add_argument('--postgres', type=str, metavar='9.6', help="Attach PostgreSQL database at $DATABASE_URL")
+parser.add_argument('--redis-cache', type=str, metavar='64m', help="Attach Redis database at $CACHE_URL")
 parser.add_argument('--memory-request', type=str, default='64M', help='Required memory allocation')
 parser.add_argument('--memory-limit', type=str, default='128M', help='Memory limit')
 parser.add_argument('--cpu-request', type=float, default=0.1, help="Number of dedicated CPU cores")
@@ -38,6 +42,128 @@ for env in args.env:
   environment.append({ 'name': var, 'value': value })
 
 items = []
+containers = []
+volumes = []
+volume_mounts = []
+
+# Add Postgres if requested
+if args.postgres is not None:
+  containers.append({
+    'name': 'postgres',
+    'image': "postgres:" + args.postgres + "-alpine",
+    'imagePullPolicy': 'Always',
+    'volumeMounts': [
+      {
+        'name': 'postgres',
+        'mountPath': '/var/lib/postgresql/data',
+      },
+    ],
+  })
+  environment.append({
+    'name': 'DATABASE_URL',
+    'value': 'postgres://postgres:postgres@localhost/postgres',
+  })
+
+  # Mount storage for Postgres
+  items.append({
+    'apiVersion': 'v1',
+    'kind': 'PersistentVolumeClaim',
+    'metadata': {
+      'namespace': args.namespace,
+      'name': args.name + '-postgres',
+    },
+    'spec': {
+      'accessModes': [ 'ReadWriteMany' ],
+      'resources': {
+        'requests': {
+          'storage': '1Gi',
+        },
+      },
+    },
+  })
+  volumes.append({
+    'name': 'postgres',
+    'persistentVolumeClaim': {
+      'claimName': args.name + '-postgres',
+    }
+  })
+
+# Redis
+if args.redis_cache is not None:
+  containers.append({
+    'name': 'redis',
+    'image': "redis:alpine",
+    'imagePullPolicy': 'Always',
+    'args': [
+      '--maxmemory', args.redis_cache,
+      '--maxmemory-policy', 'allkeys-lru',
+    ],
+  })
+  environment.append({
+    'name': 'CACHE_URL',
+    'value': 'redis://localhost:6379/0',
+  })
+
+# Add PVCs for any volumes requested.
+for volume in args.volume:
+  volslug = volume.replace('/', '_')
+  name = args.name + '-' + volslug
+
+  items.append({
+    'apiVersion': 'v1',
+    'kind': 'PersistentVolumeClaim',
+    'metadata': {
+      'namespace': args.namespace,
+      'name': name,
+    },
+    'spec': {
+      'accessModes': [ 'ReadWriteMany' ],
+      'resources': {
+        'requests': {
+          'storage': '1Gi',
+        },
+      },
+    },
+  })
+
+  # Mount this PVC in the container
+  volumes.append({
+    'name': volslug,
+    'persistentVolumeClaim': {
+      'claimName': name,
+    }
+  })
+  volume_mounts.append({
+    'name': volslug,
+    'mountPath': volume,
+  })
+
+
+# Application container
+containers.append({
+  'name': 'web',
+  'image': args.image,
+  'imagePullPolicy': args.image_pull_policy,
+  'env': environment,
+  'volumeMounts': volume_mounts,
+  'ports': [
+    {
+      'name': 'http',
+      'containerPort': args.port,
+      'protocol': 'TCP',
+    }
+  ],
+  'resources': {
+    'limits': {
+      'cpu': args.cpu_limit,
+      'memory': humanfriendly.parse_size(args.memory_limit, binary=True),
+    },
+    'requests': {
+      'cpu': args.cpu_request,
+      'memory': humanfriendly.parse_size(args.memory_request, binary=True),
+    },
+  },
+})
 
 items.append({
   'apiVersion': 'extensions/v1beta1',
@@ -64,37 +190,13 @@ items.append({
         'labels': labels,
         },
       'spec': {
-        'containers': [
-          {
-            'name': 'web',
-            'image': args.image,
-            'imagePullPolicy': args.image_pull_policy,
-
-            'env': environment,
-            'ports': [
-              {
-                'name': 'http',
-                'containerPort': args.port,
-                'protocol': 'TCP',
-              }
-            ],
-            'resources': {
-              'limits': {
-                'cpu': args.cpu_limit,
-                'memory': humanfriendly.parse_size(args.memory_limit, binary=True),
-              },
-              'requests': {
-                'cpu': args.cpu_request,
-                'memory': humanfriendly.parse_size(args.memory_request, binary=True),
-              },
-            },
-          },
-        ],
+        'containers': containers,
+        'volumes': volumes,
       },
     },
   },
 })
-        
+
 items.append({
   'apiVersion': 'v1',
   'kind': 'Service',
@@ -117,7 +219,7 @@ items.append({
 })
 
 if len(args.hostname) > 0:
-  items.append({
+  ingress = {
     'apiVersion': 'extensions/v1beta1',
     'kind': 'Ingress',
     'metadata': {
@@ -143,7 +245,21 @@ if len(args.hostname) > 0:
         } for hostname in args.hostname
       ],
     },
-  })
+  }
+
+  if args.acme:
+    ingress['metadata']['annotations'] = {
+      'kubernetes.io/tls-acme': 'true',
+    }
+    ingress['spec']['tls'] = [{
+      'hosts': [ hostname ],
+      'secretName': hostname + '-tls',
+    } for hostname in args.hostname]
+
+  items.append(ingress)
+
+
+
 
 spec = json.dumps(
   {
