@@ -44,7 +44,7 @@ labels = {
 if args.gitlab:
   try:
     tmpf = tempfile.NamedTemporaryFile(delete=False)
-    tmpf.write(environ['KUBE_CA_PEM'])
+    tmpf.write(environ['KUBE_CA_PEM'].encode('utf-8'))
     tmpf.close()
     args.ca_certificate = tmpf.name
     args.namespace = environ['KUBE_NAMESPACE']
@@ -60,6 +60,7 @@ if args.manifest:
 
   environ['IMAGE'] = args.image
   environ['NAME'] = args.name
+  environ['NAMESPACE'] = args.namespace
 
   for env in args.env:
     (var, value) = env.split('=', 1)
@@ -368,3 +369,4 @@ else:
 
   kubectl = subprocess.Popen(kargs, stdin=subprocess.PIPE)
   kubectl.communicate(spec.encode('utf-8'))
+  exit(kubectl.returncode)
