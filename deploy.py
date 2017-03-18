@@ -4,7 +4,7 @@
 # Create Kubernetes deployment manifests for a typical web application:
 # deployment, service and ingress.
 
-import argparse, json, subprocess, re, humanfriendly
+import argparse, json, subprocess, tempfile, re, humanfriendly
 from base64 import b64encode
 from os import environ
 from sys import stdout, stderr, exit
@@ -41,13 +41,25 @@ labels = {
   'app': args.name,
 }
 
+if args.gitlab:
+  try:
+    tmpf = tempfile.NamedTemporaryFile(delete=False)
+    tmpf.write(environ['KUBE_CA_PEM'])
+    tmpf.close()
+    args.ca_certificate = tmpf.name
+    args.namespace = environ['KUBE_NAMESPACE']
+    args.server = environ['KUBE_URL']
+    args.token = environ['KUBE_TOKEN']
+  except KeyError as e:
+    stderr.write("--gitlab: missing ${0} in environment\n".format(e.args[0]))
+    exit(1)
+
 if args.manifest:
   with open(args.manifest, 'r') as f:
     spec = f.read()
 
   environ['IMAGE'] = args.image
   environ['NAME'] = args.name
-  environ['KUBE_NAMESPACE'] = args.name
 
   for env in args.env:
     (var, value) = env.split('=', 1)
