@@ -63,12 +63,12 @@ if args.manifest:
     try:
       var = environ[bits[0]]
     except KeyError:
-      stderr.write(f"{args.manifest}: ${bits[0]} not in environment.\n")
+      stderr.write(args.manifest+ ": $" + bits[0] + " not in environment.\n")
       exit(1)
 
     if len(bits) > 1:
       if bits[1] not in funcs:
-        stderr.write(f"{args.manifest}: function {bits[1]} unknown.\n")
+        stderr.write(args.manifest + ": function " + bits[1] + " unknown.\n")
       return funcs[bits[1]](var, *bits[2:])
     else:
       return var
