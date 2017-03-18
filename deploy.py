@@ -73,7 +73,7 @@ if args.manifest:
     else:
       return var
 
-  spec = re.sub(r"\$({?)([A-Za-z_][A-Za-z0-9_:]+)(?(1)})", envrep, spec)
+  spec = re.sub(r"\$({)?([A-Za-z_][A-Za-z0-9_:]+)(?(1)})", envrep, spec)
 else:
   environment = []
   items = []
