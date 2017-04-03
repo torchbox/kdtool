@@ -43,10 +43,16 @@ labels = {
 
 if args.gitlab:
   try:
-    tmpf = tempfile.NamedTemporaryFile(delete=False)
-    tmpf.write(environ['KUBE_CA_PEM'].encode('utf-8'))
-    tmpf.close()
-    args.ca_certificate = tmpf.name
+    if 'KUBE_CA_PEM_FILE' in environ:
+      args.ca_certificate = environ['KUBE_CA_PEM_FILE']
+    elif 'KUBE_CA_PEM' in environ:
+      tmpf = tempfile.NamedTemporaryFile(delete=False)
+      tmpf.write(environ['KUBE_CA_PEM'].encode('utf-8'))
+      tmpf.close()
+      args.ca_certificate = tmpf.name
+    else:
+      stderr.write("--gitlab: cannot determine Kubernetes CA certificate\n")
+      exit(1)
     args.namespace = environ['KUBE_NAMESPACE']
     args.server = environ['KUBE_URL']
     args.token = environ['KUBE_TOKEN']
