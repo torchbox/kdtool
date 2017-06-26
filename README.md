@@ -51,6 +51,28 @@ The following options are accepted:
 * `-U`, `--undeploy`: Delete all the resources that would have been created if
   the command was invoked without this option.
 
+Authentication flags:
+
+* `--htauth-user=USERNAME:PASSWORD`: Require HTTP basic authentication using
+  this username and password.  This may be specified multiple times.
+* `--htauth-address=1.2.3.0/24`: Reject requests from outside this IP range.
+  May be specified multiple times.
+* `--htauth-satisfy=<any|all>`: Control behaviour when both `--htauth-user` and
+  `--htauth-address` are specified.  If `all` (default) a valid password _and_
+  a whitelisted IP address are required or the connection will be rejected.  If
+  `any`, either is sufficient for access.
+
+Authentication varies greatly among Kubernetes Ingress controllers.  As far as
+I know, the GKE Ingress controller doesn't support it at all.  The nginx
+controller supports all the options except `--htauth-satisfy`.  The only
+controller that supports all the options is
+[Traffic Server](https://github.com/torchbox/k8s-ts-ingress).
+
+This authentication is not intended to be secure: it accepts passwords in
+plaintext and hashes them using FreeBSD MD5.  It's intended to prevent search
+engines and curious users from finding your staging sites, not to replace proper
+application-level authentication.
+
 ### Example .gitlab-ci.yml
 
 Use Gitlab dynamic environments to deploy any branch at

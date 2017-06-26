@@ -9,7 +9,7 @@ FROM alpine:3.5
 
 RUN	apk update							&& \
 	apk add ca-certificates curl python3				&& \
-	pip3 install humanfriendly					&& \
+	pip3 install humanfriendly passlib				&& \
 	curl -Lo /usr/local/bin/kubectl \
 		https://storage.googleapis.com/kubernetes-release/release/v1.6.6/bin/linux/amd64/kubectl && \
 	chmod 755 /usr/local/bin/kubectl				&& \

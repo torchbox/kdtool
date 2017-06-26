@@ -17,6 +17,7 @@ import argparse, json, subprocess, tempfile, re, humanfriendly
 from base64 import b64encode
 from os import environ
 from sys import stdout, stderr, exit
+from passlib.hash import md5_crypt
 
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
 parser.add_argument('-N', '--namespace', type=str, default="default", help='Kubernetes namespace to deploy in')
@@ -37,6 +38,10 @@ parser.add_argument('-j', '--json', action='store_true', help="Print JSON instea
 parser.add_argument('-U', '--undeploy', action='store_true', help="Remove existing application")
 parser.add_argument('-n', '--dry-run', action='store_true', help="Pass --dry-run to kubectl")
 parser.add_argument('-D', '--database', type=str, choices=('mysql', 'postgresql'), help='Provision database')
+parser.add_argument('--htauth-user', type=str, action='append', default=[], metavar='USERNAME:PASSWORD', help='Add HTTP authentication username/password')
+parser.add_argument('--htauth-address', type=str, action='append', default=[], metavar='ipaddress[/prefix]', help='Add HTTP authentication address')
+parser.add_argument('--htauth-satisfy', type=str, default='any', choices=('any', 'all'), help='HTTP authentication satisfy policy')
+parser.add_argument('--htauth-realm', type=str, default='Authentication required', help='HTTP authentication realm')
 parser.add_argument('--postgres', type=str, metavar='9.6', help="Attach PostgreSQL database at $DATABASE_URL")
 parser.add_argument('--redis-cache', type=str, metavar='64m', help="Attach Redis database at $CACHE_URL")
 parser.add_argument('--memory-request', type=str, default='64M', help='Required memory allocation')
@@ -144,6 +149,25 @@ else:
 
   items.append(secrets)
 
+  if len(args.htauth_user):
+    htpasswd = ""
+    for auth in args.htauth_user:
+      (u,p) = auth.split(":", 1)
+      htpasswd += u + ":" + md5_crypt.hash(p) + "\n"
+
+    items.append({
+      'apiVersion': 'v1',
+      'kind': 'Secret',
+      'metadata': {
+        'name': args.name+'-htaccess',
+        'namespace': args.namespace,
+      },
+      'type': 'Opaque',
+      'data': {
+        'auth': b64encode(htpasswd.encode('utf-8')).decode('ascii'),
+      },
+    })
+
 # Add Postgres if requested
   if args.postgres is not None:
     containers.append({
@@ -213,7 +237,7 @@ else:
       },
       'spec': {
         'class': 'default',
-        'secret': args.name+'-database',
+        'secretName': args.name+'-database',
         'type': args.database,
       },
     })
@@ -349,6 +373,7 @@ else:
       'metadata': {
         'name': args.name,
         'namespace': args.namespace,
+        'annotations': {},
       },
       'spec': {
         'rules': [
@@ -369,10 +394,19 @@ else:
       },
     }
 
+    if len(args.htauth_address):
+      ingress['metadata']['annotations']['ingress.kubernetes.io/whitelist-source-range'] = ",".join(args.htauth_address)
+
+    if len(args.htauth_user):
+      ingress['metadata']['annotations'].update({
+        'ingress.kubernetes.io/auth-type': 'basic',
+        'ingress.kubernetes.io/auth-realm': args.htauth_realm,
+        'ingress.kubernetes.io/auth-satisfy': args.htauth_satisfy,
+        'ingress.kubernetes.io/auth-secret': args.name+'-htaccess',
+      })
+
     if args.acme:
-      ingress['metadata']['annotations'] = {
-        'kubernetes.io/tls-acme': 'true',
-      }
+      ingress['metadata']['annotations']['kubernetes.io/tls-acme'] = 'true'
       ingress['spec']['tls'] = [{
         'hosts': [ strip_hostname(hostname) ],
         'secretName': strip_hostname(hostname) + '-tls',
