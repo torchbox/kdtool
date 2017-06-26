@@ -8,6 +8,9 @@ To be useful, this requires that you've set up Kubernetes integration for your
 project in Gitlab, which is documented
 [here](https://docs.gitlab.com/ce/user/project/integrations/kubernetes.html).
 
+`deploy` can deploy simple applications without needing a manifest, and it can
+simplify manifests for more complicated applications.
+
 ## Simple applications
 
 You can use `deploy` to deploy a simple application without creating a manifest.
@@ -23,7 +26,7 @@ configured in Gitlab.
 The following options are accepted:
 
 * `-G`, `--gitlab`: Take Kubernetes cluster details from Gitlab environment
- variables.  Use this if you set up Kubernetes as a Gitlab integration.
+ variables.
 * `-A`, `--acme`: Add annotations to the Ingress to tell 
   [kube-lego](https://github.com/jetstack/kube-lego) to issue a TLS certificate.
 * `-r N`, `--replicas=N`: Create N replicas of the application.
@@ -42,6 +45,9 @@ The following options are accepted:
 * `--memory-limit`: Set Kubernetes memory limit.  Default 128MB.
 * `--cpu-request`: Set Kubernetes CPU request.  Default 100m (0.1 cores).
 * `--cpu-limit`: Set Kubernetes CPU limit.  Default 1.
+* `--database=TYPE`: Attach a database of the given type, which should be
+  `mysql` or `postgresql`.  This is Torchbox-specific and won't work elsewhere,
+  although we hope to open source the controller that makes this work soon.
 * `-U`, `--undeploy`: Delete all the resources that would have been created if
   the command was invoked without this option.
 

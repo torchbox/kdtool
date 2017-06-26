@@ -36,6 +36,7 @@ parser.add_argument('-p', '--port', type=int, default=80, help="HTTP port the ap
 parser.add_argument('-j', '--json', action='store_true', help="Print JSON instead of applying to cluster")
 parser.add_argument('-U', '--undeploy', action='store_true', help="Remove existing application")
 parser.add_argument('-n', '--dry-run', action='store_true', help="Pass --dry-run to kubectl")
+parser.add_argument('-D', '--database', type=str, choices=('mysql', 'postgresql'), help='Provision database')
 parser.add_argument('--postgres', type=str, metavar='9.6', help="Attach PostgreSQL database at $DATABASE_URL")
 parser.add_argument('--redis-cache', type=str, metavar='64m', help="Attach Redis database at $CACHE_URL")
 parser.add_argument('--memory-request', type=str, default='64M', help='Required memory allocation')
@@ -199,6 +200,32 @@ else:
     environment.append({
       'name': 'CACHE_URL',
       'value': 'redis://localhost:6379/0',
+    })
+
+# Database
+  if args.database is not None:
+    items.append({
+      'apiVersion': 'torchbox.com/v1',
+      'kind': 'Database',
+      'metadata': {
+        'namespace': args.namespace,
+        'name': args.name,
+      },
+      'spec': {
+        'class': 'default',
+        'secret': args.name+'-database',
+        'type': args.database,
+      },
+    })
+
+    environment.append({
+      'name': 'DATABASE_URL',
+      'valueFrom': {
+        'secretKeyRef': {
+          'name': args.name+'-database',
+          'key': 'database-url',
+        },
+      },
     })
 
 # Add PVCs for any volumes requested.
