@@ -11,6 +11,10 @@ project in Gitlab, which is documented
 `deploy` can deploy simple applications without needing a manifest, and it can
 simplify manifests for more complicated applications.
 
+## Screenshot
+
+![A screenshot of a Gitlab CI build showing deploy being used](deploy.png)
+
 ## Simple applications
 
 You can use `deploy` to deploy a simple application without creating a manifest.
