@@ -232,7 +232,7 @@ else:
     })
     volume_mounts.append({
       'name': volslug,
-      'mountPath': volume,
+      'mountPath': path,
     })
 
 
