@@ -4,6 +4,10 @@ This is a helper container for deploying to Kubernetes from Gitlab.  It provides
 a container with `kubectl` installed, and a tool called `deploy` that simplifies
 calling `kubectl` from Gitlab pipelines.
 
+To be useful, this requires that you've set up Kubernetes integration for your
+project in Gitlab, which is documented
+[here](https://docs.gitlab.com/ce/user/project/integrations/kubernetes.html).
+
 ## Simple applications
 
 You can use `deploy` to deploy a simple application without creating a manifest.
