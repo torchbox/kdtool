@@ -1,12 +1,10 @@
-Gitlab Kubernetes deploy tool
-=============================
+# Gitlab Kubernetes deploy tool
 
 This is a helper container for deploying to Kubernetes from Gitlab.  It provides
 a container with `kubectl` installed, and a tool called `deploy` that simplifies
 calling `kubectl` from Gitlab pipelines.
 
-Simple applications
-===================
+## Simple applications
 
 You can use `deploy` to deploy a simple application without creating a manifest.
 To deply the built image on "www.mysite.com" using a Kubernetes Deployment,
@@ -41,8 +39,7 @@ The following options are accepted:
 * `-U`, `--undeploy`: Delete all the resources that would have been created if
   the command was invoked without this option.
 
-Example .gitlab-ci.yml
-----------------------
+### Example .gitlab-ci.yml
 
 Use Gitlab dynamic environments to deploy any branch at
 `https://<branchname>.myapp-staging.com`, except for `master` which is
@@ -105,8 +102,7 @@ undeploy_staging:
   - deploy -G --undeploy -A -H $CI_ENVIRONMENT_SLUG.myapp.com $IMAGE_TAG $CI_ENVIRONMENT_SLUG
 ```
 
-Custom manifests
-================
+## Custom manifests
 
 `deploy`'s automatic manifest generation isn't intended to cover every possible
 use case.  If you like, you can provide your own manifest; `deploy` will do
@@ -183,7 +179,6 @@ spec:
 
 ---
 
-# Ingress
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
