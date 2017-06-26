@@ -11,12 +11,14 @@ project in Gitlab, which is documented
 ## Simple applications
 
 You can use `deploy` to deploy a simple application without creating a manifest.
-To deply the built image on "www.mysite.com" using a Kubernetes Deployment,
-Service and Ingress:
+To deploy the built image on "www.mysite.com" from `.gitlab-ci.yml`:
 
 ```
 deploy -G --hostname=www.mysite.com $CI_REGISTRY_IMAGE:$CI_BUILD_REF $CI_ENVIRONMENT_SLUG
 ```
+
+This will create a Deployment, Service and Ingress in the Kubernete namespace
+configured in Gitlab.
 
 The following options are accepted:
 
@@ -26,7 +28,7 @@ The following options are accepted:
   [kube-lego](https://github.com/jetstack/kube-lego) to issue a TLS certificate.
 * `-r N`, `--replicas=N`: Create N replicas of the application.
 * `-P policy`, `--image-pull-policy=policy`: Set the Kubernete images pull 
-  policy to `IfNotPresent` or `Always`e.
+  policy to `IfNotPresent` or `Always`.
 * `-e VAR=VALUE`, `--env=VAR=VALUE`: Set the given environment variable in the
   Deployment.
 * `-s VAR=VALUE`, `--secret=VAR=VALUE`: Set the given environment variable as a
