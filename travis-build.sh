@@ -22,4 +22,6 @@ if [ "$TRAVIS_PULL_REQUEST" = "false" -a -n "$TRAVIS_TAG" ]; then
 	docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
 	docker tag torchbox/gitlab-kube-deploy:$COMMIT torchbox/gitlab-kube-deploy:$TRAVIS_TAG
 	docker push torchbox/gitlab-kube-deploy:$TRAVIS_TAG
+	docker tag torchbox/gitlab-kube-deploy:$COMMIT torchbox/gitlab-kube-deploy:latest
+	docker push torchbox/gitlab-kube-deploy:latest
 fi
