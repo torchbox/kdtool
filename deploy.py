@@ -1,8 +1,17 @@
 #! /usr/bin/env python3
 # vim:set sw=2 ts=2 et:
+#
+# Copyright (c) 2016-2017 Torchbox Ltd.
+#
+# Permission is granted to anyone to use this software for any purpose,
+# including commercial applications, and to alter it and redistribute it
+# freely. This software is provided 'as-is', without any express or implied
+# warranty.
+
 
 # Create Kubernetes deployment manifests for a typical web application:
 # deployment, service and ingress.
+
 
 import argparse, json, subprocess, tempfile, re, humanfriendly
 from base64 import b64encode
@@ -190,7 +199,7 @@ else:
 
 # Add PVCs for any volumes requested.
   for volume in args.volume:
-    volslug = volume.replace('/', '_')
+    (volslug, path) = volume.split(':', 1)
     name = args.name + '-' + volslug
 
     items.append({
