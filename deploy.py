@@ -50,6 +50,10 @@ labels = {
   'app': args.name,
 }
 
+def strip_hostname(hostname):
+  # Strip https?:// from a hostname so --hostname=<URL> works.
+  return re.sub(r"^https?://([^/]*)(/.*)?$", r'\1', hostname)
+
 if args.gitlab:
   try:
     if 'KUBE_CA_PEM_FILE' in environ:
@@ -316,15 +320,13 @@ else:
       'apiVersion': 'extensions/v1beta1',
       'kind': 'Ingress',
       'metadata': {
-#    annotations:
-#      kubernetes.io/tls-acme: "true"
         'name': args.name,
         'namespace': args.namespace,
       },
       'spec': {
         'rules': [
           {
-            'host': hostname,
+            'host': strip_hostname(hostname),
             'http': {
               'paths': [
                 {
@@ -345,8 +347,8 @@ else:
         'kubernetes.io/tls-acme': 'true',
       }
       ingress['spec']['tls'] = [{
-        'hosts': [ hostname ],
-        'secretName': hostname + '-tls',
+        'hosts': [ strip_hostname(hostname) ],
+        'secretName': strip_hostname(hostname) + '-tls',
       } for hostname in args.hostname]
 
     items.append(ingress)
