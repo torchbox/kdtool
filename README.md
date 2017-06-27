@@ -51,9 +51,8 @@ If you're using Gitlab CI with Kubernetes integration, specify `--gitlab` and
 none of the other options.
 
 If you want to authenticate with the pod service account credentials, do not
-specify any authentication options and run `kubectl proxy` as a sidecar
-container as described
-[here](https://github.com/kubernetes/kubernetes/tree/master/examples/kubectl-container/).
+specify any authentication options; kubectl will pick up the service account
+details from the pod.
 
 Application options:
 
