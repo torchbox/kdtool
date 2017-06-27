@@ -1,15 +1,19 @@
 # Gitlab Kubernetes deploy tool
 
-This is a helper container for deploying to Kubernetes from Gitlab.  It provides
-a container with `kubectl` installed, and a tool called `deploy` that simplifies
-calling `kubectl` from Gitlab pipelines.
-
-To be useful, this requires that you've set up Kubernetes integration for your
-project in Gitlab, which is documented
-[here](https://docs.gitlab.com/ce/user/project/integrations/kubernetes.html).
+This is a helper container for deploying applications on Kubernetes, with
+emphasis on deploying from Gitlab and other CI applications.  It provides a
+container with `kubectl` installed, and a tool called `deploy` that simplifies
+calling kubectl from CI jobs.
 
 `deploy` can deploy simple applications without needing a manifest, and it can
 simplify manifests for more complicated applications.
+
+To use the Gitlab integration, you must have set up Kubernetes integration for
+your project in Gitlab, which is documented
+[here](https://docs.gitlab.com/ce/user/project/integrations/kubernetes.html).
+
+You can also use this container from outside Gitlab if you provide your own
+credentials (or, if running in Kubernetes, use the pod's service credentials).
 
 ## Screenshot
 
@@ -29,47 +33,100 @@ configured in Gitlab.
 
 The following options are accepted:
 
-* `-G`, `--gitlab`: Take Kubernetes cluster details from Gitlab environment
- variables.
-* `-A`, `--acme`: Add annotations to the Ingress to tell 
+Authentication options:
+
+* `-G, --gitlab`: Take Kubernetes cluster details from Gitlab environment
+ variables.  (Replaces `--namespace`, `--server`, `--ca-certificate` and
+ `--token`.)
+* `-N ns, --namespace=ns`: Set the Kubernetes namespace to deploy in. Default:
+  `default`.
+* `-S url, --server=url`: Set the URL of the Kubernetes API server.  No
+  default, but kubectl itself defaults to http://localhost:8080.
+* `-T token, --token=token`: Set Kubernetes authentication token.  This can be a
+  user token, a serviceaccount JWT token or whatever.  No default.
+* `-C path, --ca-certificate=path`: Set Kubernetes API server CA certificate.
+  No default.
+
+If you're using Gitlab CI with Kubernetes integration, specify `--gitlab` and
+none of the other options.
+
+If you want to authenticate with the pod service account credentials, do not
+specify any authentication options and run `kubectl proxy` as a sidecar
+container as described
+[here](https://github.com/kubernetes/kubernetes/tree/master/examples/kubectl-container/).
+
+Application options:
+
+* `-H HOST, --hostname=HOST`: create an Ingress resource to route requets for
+  the given hostname to the application.  Providing a URL will also work, but
+  everything except the hostname will be ignored.  May be specified multiple
+  times.
+* `-p PORT, --port=PORT`: Set the port the application container listens on
+  (default 80).  If your application doesn't listen on port 80, you must
+  specify this for `--hostname` to work.
+* `-A, --acme`: Add annotations to the created Ingress to tell
   [kube-lego](https://github.com/jetstack/kube-lego) to issue a TLS certificate.
-* `-r N`, `--replicas=N`: Create N replicas of the application.
-* `-P policy`, `--image-pull-policy=policy`: Set the Kubernete images pull 
-  policy to `IfNotPresent` or `Always`.
-* `-e VAR=VALUE`, `--env=VAR=VALUE`: Set the given environment variable in the
-  Deployment.
-* `-s VAR=VALUE`, `--secret=VAR=VALUE`: Set the given environment variable as a
-  Kubernetes Secret referenced from the Deployment.
-* `-p port`, `--port=port`: Set the port the application container listens on
-  (default 80).
-* `-v NAME:PATH`, `--volume=NAME:PATH`: Create a Persistent Volume Claim called
-  `NAME` and mount it at `PATH`.  For this to work, your cluster must have a
-  functional PVC provisioner.
+* `-r N, --replicas=N`: Create N replicas of the application.
+* `-P policy, --image-pull-policy=policy`: Set the Kubernete images pull
+  policy to `IfNotPresent` or `Always`.  `Always` is only required if you push
+  new versions without updating the image tag, which usually should not be the
+  case with CI builds.
+* `-e VAR=VALUE, --env=VAR=VALUE`: Set the given environment variable in the
+  applications's environment.
+* `-s VAR=VALUE, --secret=VAR=VALUE`: Set the given environment variable in
+  application's environment using a Kubernetes Secret.
 * `--memory-request`: Set Kubernetes memory request.  Default 64MB.
 * `--memory-limit`: Set Kubernetes memory limit.  Default 128MB.
 * `--cpu-request`: Set Kubernetes CPU request.  Default 100m (0.1 cores).
 * `--cpu-limit`: Set Kubernetes CPU limit.  Default 1.
-* `--database=TYPE`: Attach a database of the given type, which should be
-  `mysql` or `postgresql`.  This is Torchbox-specific and won't work elsewhere,
-  although we hope to open source the controller that makes this work soon.
-* `-U`, `--undeploy`: Delete all the resources that would have been created if
-  the command was invoked without this option.
 
-Authentication flags:
+Service options:
+
+* `-v NAME:PATH, --volume=NAME:PATH`: Create a Persistent Volume Claim called
+  `NAME` and mount it at `PATH`.  For this to work, your cluster must have a
+  functional PVC provisioner.   Currently this always requests a `ReadWriteMany`
+  volume, which means it does work with `--replicas` but does not work with GCE
+  or AWS volumes.  (It does work with NFS, CephFS, GlusterFS, etc.)
+* `--database=TYPE`: Attach a persistent database of the given type, which
+  should be `mysql` or `postgresql`.  This is Torchbox-specific and won't work
+  elsewhere, although we hope to open source the controller that makes this work
+  soon.  This is fully compatible with `--replicas`.
+* `--postgres=VERSION` (e.g. `--postgres=9.6`; EXPERIMENTAL, UNTESTED):
+  Deploy a PostgreSQL container alongside the application and configure
+  `$DATABASE_URL` with the access details.  The PostgreSQL data is stored in a
+  PVC, so this requires that your cluster has a functional PVC provisioner.  The
+  PVC will be deleted when the application is undeployed.  This is intended for
+  review apps, not production sites.  **This will not work with --replicas**.
+  (Well, it will, but every replica will get its own database.)
+* `--redis=MEMORY` (e.g. `--redis=64m`; EXPERIMENTAL, UNTESTED): Deploy a Redis
+  container alongside the application and set `$CACHE_URL` to its location.
+  Data stored in Redis is not persisted and the container is deleted when the
+  application is undeployed.  This is intended for review apps, not
+  production sites.  If used with `--replicas`, every replica will get its own
+  Redis instance.
+
+Undeploy options:
+
+* `-U, --undeploy`: Delete all the resources that would have been created if
+  the command was invoked without this option.  When undeploying an application,
+  you should specify the same options you did when creating it, such as
+  `--hostname`, `--database`, `--volume`, etc., so that it knows what to delete.
+
+HTTP authentication flags:
 
 * `--htauth-user=USERNAME:PASSWORD`: Require HTTP basic authentication using
-  this username and password.  This may be specified multiple times.
+  this username and plaintext password.  This may be specified multiple times.
 * `--htauth-address=1.2.3.0/24`: Reject requests from outside this IP range.
   May be specified multiple times.
 * `--htauth-satisfy=<any|all>`: Control behaviour when both `--htauth-user` and
-  `--htauth-address` are specified.  If `all` (default) a valid password _and_
+  `--htauth-address` are specified.  If `all` (default), a valid password _and_
   a whitelisted IP address are required or the connection will be rejected.  If
   `any`, either is sufficient for access.
 
-Authentication varies greatly among Kubernetes Ingress controllers.  As far as
-I know, the GKE Ingress controller doesn't support it at all.  The nginx
-controller supports all the options except `--htauth-satisfy`.  The only
-controller that supports all the options is
+Support for HTTP authentication varies greatly among Kubernetes Ingress
+controllers.  As far as I know, the GKE Ingress controller doesn't support it at
+all.  The nginx controller supports all the options except `--htauth-satisfy`.
+The only controller that supports `--htauth-satisfy` is
 [Traffic Server](https://github.com/torchbox/k8s-ts-ingress).
 
 This authentication is not intended to be secure: it accepts passwords in
@@ -109,10 +166,10 @@ deploy_production:
     name: $CI_BUILD_REF_NAME
     url: https://www.myapp.com
   image: torchbox/gitlab-kube-deploy:latest
-  script: 
+  script:
   - deploy -G -r2 -A -H www.myapp.com $IMAGE_TAG $CI_ENVIRONMENT_SLUG
 
-deploy_staging:
+deploy_review:
   stage: deploy
   only:
   - branches
@@ -120,13 +177,13 @@ deploy_staging:
   - master
   environment:
     name: $CI_BUILD_REF_NAME
-    url: https://$CI_ENVIRONMENT_SLUG.myapp.com
-    on_stop: undeploy_staging
+    url: https://$CI_ENVIRONMENT_SLUG.myapp-staging.com
+    on_stop: undeploy_review
   image: torchbox/gitlab-kube-deploy:latest
-  script: 
-  - deploy -G -A -H $CI_ENVIRONMENT_SLUG.myapp.com $IMAGE_TAG $CI_ENVIRONMENT_SLUG
+  script:
+  - deploy -G -A -H $CI_ENVIRONMENT_URL $IMAGE_TAG $CI_ENVIRONMENT_SLUG
 
-undeploy_staging:
+undeploy_review:
   stage: deploy
   when: manual
 
@@ -136,8 +193,8 @@ undeploy_staging:
 
   image: torchbox/gitlab-kube-deploy:latest
 
-  script: 
-  - deploy -G --undeploy -A -H $CI_ENVIRONMENT_SLUG.myapp.com $IMAGE_TAG $CI_ENVIRONMENT_SLUG
+  script:
+  - deploy -G --undeploy -A -H $CI_ENVIRONMENT_URL $IMAGE_TAG $CI_ENVIRONMENT_SLUG
 ```
 
 ## Custom manifests
@@ -249,6 +306,6 @@ deploy_production:
     name: $CI_BUILD_REF_NAME
     url: https://www.myapp.com
   image: torchbox/gitlab-kube-deploy:latest
-  script: 
+  script:
   - deploy -G --manifest=deployment.yaml $IMAGE_TAG $CI_ENVIRONMENT_SLUG
 ```
