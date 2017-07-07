@@ -44,10 +44,10 @@ parser.add_argument('--htauth-satisfy', type=str, default='any', choices=('any',
 parser.add_argument('--htauth-realm', type=str, default='Authentication required', help='HTTP authentication realm')
 parser.add_argument('--postgres', type=str, metavar='9.6', help="Attach PostgreSQL database at $DATABASE_URL")
 parser.add_argument('--redis-cache', type=str, metavar='64m', help="Attach Redis database at $CACHE_URL")
-parser.add_argument('--memory-request', type=str, default='64M', help='Required memory allocation')
-parser.add_argument('--memory-limit', type=str, default='128M', help='Memory limit')
-parser.add_argument('--cpu-request', type=float, default=0.1, help="Number of dedicated CPU cores")
-parser.add_argument('--cpu-limit', type=float, default=1, help='CPU core use limit')
+parser.add_argument('--memory-request', type=str, default='none', help='Required memory allocation')
+parser.add_argument('--memory-limit', type=str, default='none', help='Memory limit')
+parser.add_argument('--cpu-request', type=float, default=0, help="Number of dedicated CPU cores")
+parser.add_argument('--cpu-limit', type=float, default=0, help='CPU core use limit')
 parser.add_argument('image', type=str, help='Docker image to deploy')
 parser.add_argument('name', type=str, help='Application name')
 args = parser.parse_args()
@@ -288,7 +288,7 @@ else:
 
 
 # Application container
-  containers.append({
+  app_container = {
     'name': 'web',
     'image': args.image,
     'imagePullPolicy': args.image_pull_policy,
@@ -303,15 +303,21 @@ else:
     ],
     'resources': {
       'limits': {
-        'cpu': args.cpu_limit,
-        'memory': humanfriendly.parse_size(args.memory_limit, binary=True),
       },
       'requests': {
-        'cpu': args.cpu_request,
-        'memory': humanfriendly.parse_size(args.memory_request, binary=True),
       },
     },
-  })
+  }
+
+  if args.cpu_limit:
+    app_container['resources']['limits']['cpu'] = args.cpu_limit
+  if args.cpu_request:
+    app_container['resources']['requests']['cpu'] = args.cpu_request
+  if args.memory_limit != 'none':
+    app_container['resources']['limits']['memory'] = humanfriendly.parse_size(args.memory_limit, binary=True)
+  if args.memory_request != 'none':
+    app_container['resources']['requests']['memory'] = humanfriendly.parse_size(args.memory_request, binary=True)
+  containers.append(app_container)
 
   items.append({
     'apiVersion': 'extensions/v1beta1',

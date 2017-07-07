@@ -74,10 +74,10 @@ Application options:
   applications's environment.
 * `-s VAR=VALUE, --secret=VAR=VALUE`: Set the given environment variable in
   application's environment using a Kubernetes Secret.
-* `--memory-request`: Set Kubernetes memory request.  Default 64MB.
-* `--memory-limit`: Set Kubernetes memory limit.  Default 128MB.
-* `--cpu-request`: Set Kubernetes CPU request.  Default 100m (0.1 cores).
-* `--cpu-limit`: Set Kubernetes CPU limit.  Default 1.
+* `--memory-request`: Set Kubernetes memory request.
+* `--memory-limit`: Set Kubernetes memory limit.
+* `--cpu-request`: Set Kubernetes CPU request.
+* `--cpu-limit`: Set Kubernetes CPU limit.
 
 Service options:
 
