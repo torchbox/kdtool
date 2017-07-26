@@ -19,6 +19,12 @@ from os import environ
 from sys import stdout, stderr, exit
 from passlib.hash import md5_crypt
 
+# GitLab 9.4 puts $KUBECONFIG in the environment, which causes kubectl to fail
+# with an error when we specify --certificate-authority=.  Since we don't need
+# a kubeconfig, just remove it.
+if 'KUBECONFIG' in environ:
+  del environ['KUBECONFIG']
+
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
 parser.add_argument('-N', '--namespace', type=str, default="default", help='Kubernetes namespace to deploy in')
 parser.add_argument('-S', '--server', type=str, metavar='URL', help="Kubernetes API server URL")
