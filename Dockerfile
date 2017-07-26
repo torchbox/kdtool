@@ -5,13 +5,13 @@
 # including commercial applications, and to alter it and redistribute it
 # freely. This software is provided 'as-is', without any express or implied
 # warranty.
-FROM alpine:3.5
+FROM alpine:3.6
 
 RUN	apk update							&& \
 	apk add ca-certificates curl python3				&& \
 	pip3 install humanfriendly passlib				&& \
 	curl -Lo /usr/local/bin/kubectl \
-		https://storage.googleapis.com/kubernetes-release/release/v1.6.6/bin/linux/amd64/kubectl && \
+		https://storage.googleapis.com/kubernetes-release/release/v1.7.2/bin/linux/amd64/kubectl && \
 	chmod 755 /usr/local/bin/kubectl				&& \
 	apk del curl							&& \
 	rm -rf /var/cache/apk/*
