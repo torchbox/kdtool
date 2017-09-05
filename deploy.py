@@ -137,8 +137,10 @@ else:
   }
 
   for env in args.env:
-    (var, value) = env.split('=', 1)
-    environment.append({ 'name': var, 'value': value })
+    envbits = env.split('=', 1)
+    if len(envbits) == 1:
+      envbits.append(environ.get(envbits[0], ''))
+    environment.append({ 'name': envbits[0], 'value': envbits[1] })
 
   for secret in args.secret:
     (var, value) = secret.split('=', 1)
