@@ -11,7 +11,7 @@ RUN	apk update							&& \
 	apk add ca-certificates curl python3				&& \
 	pip3 install humanfriendly passlib				&& \
 	curl -Lo /usr/local/bin/kubectl \
-		https://storage.googleapis.com/kubernetes-release/release/v1.7.2/bin/linux/amd64/kubectl && \
+		https://storage.googleapis.com/kubernetes-release/release/v1.7.5/bin/linux/amd64/kubectl && \
 	chmod 755 /usr/local/bin/kubectl				&& \
 	apk del curl							&& \
 	rm -rf /var/cache/apk/*
