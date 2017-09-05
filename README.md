@@ -70,8 +70,9 @@ Application options:
   policy to `IfNotPresent` or `Always`.  `Always` is only required if you push
   new versions without updating the image tag, which usually should not be the
   case with CI builds.
-* `-e VAR=VALUE, --env=VAR=VALUE`: Set the given environment variable in the
-  applications's environment.
+* `-e VAR[=VALUE], --env=VAR[=VALUE]`: Set the given environment variable in the
+  applications's environment.  If no value is specified, it will be taken from
+  the current environment.
 * `-s VAR=VALUE, --secret=VAR=VALUE`: Set the given environment variable in
   application's environment using a Kubernetes Secret.
 * `--memory-request`: Set Kubernetes memory request.
