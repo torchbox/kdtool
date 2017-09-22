@@ -19,12 +19,6 @@ from os import environ
 from sys import stdout, stderr, exit
 from passlib.hash import md5_crypt
 
-# GitLab 9.4 puts $KUBECONFIG in the environment, which causes kubectl to fail
-# with an error when we specify --certificate-authority=.  Since we don't need
-# a kubeconfig, just remove it.
-if 'KUBECONFIG' in environ:
-  del environ['KUBECONFIG']
-
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
 parser.add_argument('-N', '--namespace', type=str, default="default",
     help='Kubernetes namespace to deploy in')
@@ -97,6 +91,12 @@ def strip_hostname(hostname):
   return re.sub(r"^https?://([^/]*)(/.*)?$", r'\1', hostname)
 
 if args.gitlab:
+  # GitLab 9.4 puts $KUBECONFIG in the environment, which causes kubectl to fail
+  # with an error when we specify --certificate-authority=.  Since we don't need
+  # a kubeconfig, just remove it.
+  if 'KUBECONFIG' in environ:
+    del environ['KUBECONFIG']
+
   try:
     if 'KUBE_CA_PEM_FILE' in environ:
       args.ca_certificate = environ['KUBE_CA_PEM_FILE']
