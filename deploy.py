@@ -26,34 +26,64 @@ if 'KUBECONFIG' in environ:
   del environ['KUBECONFIG']
 
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
-parser.add_argument('-N', '--namespace', type=str, default="default", help='Kubernetes namespace to deploy in')
-parser.add_argument('-S', '--server', type=str, metavar='URL', help="Kubernetes API server URL")
-parser.add_argument('-T', '--token', type=str, help="Kubernetes authentication token")
-parser.add_argument('-C', '--ca-certificate', type=str, help="Kubernetes API server CA certificate")
-parser.add_argument('-G', '--gitlab', action='store_true', help="Configure Kubernetes from Gitlab CI")
-parser.add_argument('-H', '--hostname', type=str, action='append', default=[], help='Hostname to expose the application on')
-parser.add_argument('-A', '--acme', action='store_true', help='Issue Let\'s Encrypt (ACME) TLS certificate')
-parser.add_argument('-M', '--manifest', type=str, metavar='FILE', help='Deploy from Kubernetes manifest with environment substitution')
-parser.add_argument('-r', '--replicas', type=int, default=1, help="Number of replicas to create")
-parser.add_argument('-P', '--image-pull-policy', type=str, choices=('IfNotPresent', 'Always'), default='IfNotPresent', help="Image pull policy")
-parser.add_argument('-e', '--env', type=str, action='append', default=[], metavar='VARNAME=VALUE', help="Set environment variable")
-parser.add_argument('-s', '--secret', type=str, action='append', default=[], metavar='VARNAME=VALUE', help="Set secret environment variable")
-parser.add_argument('-v', '--volume', type=str, action='append', default=[], metavar='PATH', help="Attach persistent filesystem storage at PATH")
-parser.add_argument('-p', '--port', type=int, default=80, help="HTTP port the application listens on")
-parser.add_argument('-j', '--json', action='store_true', help="Print JSON instead of applying to cluster")
-parser.add_argument('-U', '--undeploy', action='store_true', help="Remove existing application")
-parser.add_argument('-n', '--dry-run', action='store_true', help="Pass --dry-run to kubectl")
-parser.add_argument('-D', '--database', type=str, choices=('mysql', 'postgresql'), help='Provision database')
-parser.add_argument('--htauth-user', type=str, action='append', default=[], metavar='USERNAME:PASSWORD', help='Add HTTP authentication username/password')
-parser.add_argument('--htauth-address', type=str, action='append', default=[], metavar='ipaddress[/prefix]', help='Add HTTP authentication address')
-parser.add_argument('--htauth-satisfy', type=str, default='any', choices=('any', 'all'), help='HTTP authentication satisfy policy')
-parser.add_argument('--htauth-realm', type=str, default='Authentication required', help='HTTP authentication realm')
-parser.add_argument('--postgres', type=str, metavar='9.6', help="Attach PostgreSQL database at $DATABASE_URL")
-parser.add_argument('--redis-cache', type=str, metavar='64m', help="Attach Redis database at $CACHE_URL")
-parser.add_argument('--memory-request', type=str, default='none', help='Required memory allocation')
-parser.add_argument('--memory-limit', type=str, default='none', help='Memory limit')
-parser.add_argument('--cpu-request', type=float, default=0, help="Number of dedicated CPU cores")
-parser.add_argument('--cpu-limit', type=float, default=0, help='CPU core use limit')
+parser.add_argument('-N', '--namespace', type=str, default="default",
+    help='Kubernetes namespace to deploy in')
+parser.add_argument('-S', '--server', type=str, metavar='URL',
+    help="Kubernetes API server URL")
+parser.add_argument('-T', '--token', type=str,
+    help="Kubernetes authentication token")
+parser.add_argument('-C', '--ca-certificate', type=str,
+    help="Kubernetes API server CA certificate")
+parser.add_argument('-G', '--gitlab', action='store_true',
+    help="Configure Kubernetes from Gitlab CI")
+parser.add_argument('-H', '--hostname', type=str, action='append', default=[],
+    help='Hostname to expose the application on')
+parser.add_argument('-A', '--acme', action='store_true',
+    help='Issue Let\'s Encrypt (ACME) TLS certificate')
+parser.add_argument('-M', '--manifest', type=str, metavar='FILE',
+    help='Deploy from Kubernetes manifest with environment substitution')
+parser.add_argument('-r', '--replicas', type=int, default=1,
+    help="Number of replicas to create")
+parser.add_argument('-P', '--image-pull-policy', type=str,
+    choices=('IfNotPresent', 'Always'), default='IfNotPresent',
+    help="Image pull policy")
+parser.add_argument('-e', '--env', type=str, action='append', default=[],
+    metavar='VARNAME=VALUE', help="Set environment variable")
+parser.add_argument('-s', '--secret', type=str, action='append', default=[],
+    metavar='VARNAME=VALUE', help="Set secret environment variable")
+parser.add_argument('-v', '--volume', type=str, action='append', default=[],
+    metavar='PATH', help="Attach persistent filesystem storage at PATH")
+parser.add_argument('-p', '--port', type=int, default=80,
+    help="HTTP port the application listens on")
+parser.add_argument('-j', '--json', action='store_true',
+    help="Print JSON instead of applying to cluster")
+parser.add_argument('-U', '--undeploy', action='store_true',
+    help="Remove existing application")
+parser.add_argument('-n', '--dry-run', action='store_true',
+    help="Pass --dry-run to kubectl")
+parser.add_argument('-D', '--database', type=str,
+    choices=('mysql', 'postgresql'), help='Provision database')
+parser.add_argument('--htauth-user', type=str, action='append', default=[],
+    metavar='USERNAME:PASSWORD',
+    help='Add HTTP authentication username/password')
+parser.add_argument('--htauth-address', type=str, action='append', default=[],
+    metavar='ipaddress[/prefix]', help='Add HTTP authentication address')
+parser.add_argument('--htauth-satisfy', type=str, default='any',
+    choices=('any', 'all'), help='HTTP authentication satisfy policy')
+parser.add_argument('--htauth-realm', type=str,
+    default='Authentication required', help='HTTP authentication realm')
+parser.add_argument('--postgres', type=str, metavar='9.6',
+    help="Attach PostgreSQL database at $DATABASE_URL")
+parser.add_argument('--redis-cache', type=str, metavar='64m',
+    help="Attach Redis database at $CACHE_URL")
+parser.add_argument('--memory-request', type=str, default='none',
+    help='Required memory allocation')
+parser.add_argument('--memory-limit', type=str, default='none',
+    help='Memory limit')
+parser.add_argument('--cpu-request', type=float, default=0,
+    help="Number of dedicated CPU cores")
+parser.add_argument('--cpu-limit', type=float, default=0,
+    help='CPU core use limit')
 parser.add_argument('image', type=str, help='Docker image to deploy')
 parser.add_argument('name', type=str, help='Application name')
 args = parser.parse_args()
@@ -322,9 +352,11 @@ else:
   if args.cpu_request:
     app_container['resources']['requests']['cpu'] = args.cpu_request
   if args.memory_limit != 'none':
-    app_container['resources']['limits']['memory'] = humanfriendly.parse_size(args.memory_limit, binary=True)
+    app_container['resources']['limits']['memory'] = \
+      humanfriendly.parse_size(args.memory_limit, binary=True)
   if args.memory_request != 'none':
-    app_container['resources']['requests']['memory'] = humanfriendly.parse_size(args.memory_request, binary=True)
+    app_container['resources']['requests']['memory'] = \
+      humanfriendly.parse_size(args.memory_request, binary=True)
   containers.append(app_container)
 
   items.append({
@@ -409,7 +441,9 @@ else:
     }
 
     if len(args.htauth_address):
-      ingress['metadata']['annotations']['ingress.kubernetes.io/whitelist-source-range'] = ",".join(args.htauth_address)
+      ingress['metadata']['annotations']\
+        ['ingress.kubernetes.io/whitelist-source-range'] = \
+          ",".join(args.htauth_address)
 
     if len(args.htauth_user):
       ingress['metadata']['annotations'].update({
