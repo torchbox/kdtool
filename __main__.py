@@ -32,8 +32,8 @@ class PrintVersion(argparse.Action):
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
 parser.add_argument('-V', '--version', nargs=0, action=PrintVersion,
     help="Type program version and exit")
-parser.add_argument('-R', '--rollout-status', action='store_true',
-    help='Wait for application rollout to complete and print status')
+parser.add_argument('-K', '--kubectl', type=str, metavar='PATH',
+    default='/usr/local/bin/kubectl', help='Location of kubectl binary')
 parser.add_argument('-N', '--namespace', type=str, default="default",
     help='Kubernetes namespace to deploy in')
 parser.add_argument('-S', '--server', type=str, metavar='URL',
@@ -92,6 +92,7 @@ parser.add_argument('--cpu-request', type=float, default=0,
     help="Number of dedicated CPU cores")
 parser.add_argument('--cpu-limit', type=float, default=0,
     help='CPU core use limit')
+parser.add_argument('--strategy', type=str, choices=('rollingupdate', 'recreate'), default='rollingupdate', help='Deployment update strategy')
 parser.add_argument('image', type=str, help='Docker image to deploy')
 parser.add_argument('name', type=str, help='Application name')
 args = parser.parse_args()
@@ -99,6 +100,22 @@ args = parser.parse_args()
 labels = {
   'app': args.name,
 }
+
+# Return a kubectl command line to connect to the cluster based on our
+# arguments.
+def get_kubectl_args(args):
+  kargs = [ args.kubectl ]
+
+  if args.server:
+    kargs.append('--server='+args.server)
+  if args.token:
+    kargs.append('--token='+args.token)
+  if args.ca_certificate:
+    kargs.append('--certificate-authority='+args.ca_certificate)
+  if args.namespace:
+    kargs.append('--namespace='+args.namespace)
+
+  return kargs
 
 def strip_hostname(hostname):
   # Strip https?:// from a hostname so --hostname=<URL> works.
@@ -280,19 +297,45 @@ else:
 
 # Database
   if args.database is not None:
-    items.append({
-      'apiVersion': 'torchbox.com/v1',
-      'kind': 'Database',
-      'metadata': {
-        'namespace': args.namespace,
-        'name': args.name,
-      },
-      'spec': {
-        'class': 'default',
-        'secretName': args.name+'-database',
-        'type': args.database,
-      },
-    })
+    # Due to Kubernetes bug #53379 (https://github.com/kubernetes/kubernetes/issues/53379)
+    # we cannot unconditionally include the database in the manifest; it will
+    # fail to apply correctly when the database provisioner is using CRD
+    # instead of TPR.  As a workaround, attempt to check whether the database
+    # already exists.  This is not a very good check because any failure of
+    # kubectl will be treated as the database not existing, but it will do to
+    # make deployments work until the Kubernetes bug is fixed.
+    provision_db = True
+
+    if args.undeploy == False:
+      stdout.write('checking if database already exists (bug #53379 workaround)...\n')
+      kargs = get_kubectl_args(args)
+      kargs.extend([ 'get', 'database', args.name ])
+      kubectl = subprocess.Popen(kargs,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL)
+      kubectl.communicate()
+
+      if kubectl.returncode == 0:
+        stdout.write('database exists; will not replace\n')
+        provision_db = False
+      else:
+        stdout.write('database does not exist; will create\n')
+
+    if provision_db:
+      items.append({
+        'apiVersion': 'torchbox.com/v1',
+        'kind': 'Database',
+        'metadata': {
+          'namespace': args.namespace,
+          'name': args.name,
+        },
+        'spec': {
+          'class': 'default',
+          'secretName': args.name+'-database',
+          'type': args.database,
+        },
+      })
 
     environment.append({
       'name': 'DATABASE_URL',
@@ -373,7 +416,7 @@ else:
       humanfriendly.parse_size(args.memory_request, binary=True)
   containers.append(app_container)
 
-  items.append({
+  deployment = {
     'apiVersion': 'extensions/v1beta1',
     'kind': 'Deployment',
     'metadata': {
@@ -386,13 +429,6 @@ else:
       'selector': {
         'matchLabels': labels,
       },
-      'strategy': {
-        'type': 'RollingUpdate',
-        'rollingUpdate': {
-          'maxSurge': 1,
-          'maxUnavailable': 0,
-        },
-      },
       'template': {
         'metadata': {
           'labels': labels,
@@ -403,7 +439,22 @@ else:
         },
       },
     },
-  })
+  }
+
+  if args.strategy == 'rollingupdate':
+      deployment['spec']['strategy'] = {
+        'type': 'RollingUpdate',
+        'rollingUpdate': {
+          'maxSurge': 1,
+          'maxUnavailable': 0,
+        },
+      }
+  else:
+      deployment['spec']['strategy'] = {
+        'type': 'Recreate',
+      }
+
+  items.append(deployment)
 
   items.append({
     'apiVersion': 'v1',
@@ -486,21 +537,12 @@ else:
 if args.json:
   print(spec)
 else:
-  kargs = ['/usr/local/bin/kubectl']
+  kargs = get_kubectl_args(args)
 
   if args.undeploy:
     kargs.append('delete')
   else:
     kargs.append('apply')
-
-  if args.server:
-    kargs.append('--server='+args.server)
-  if args.token:
-    kargs.append('--token='+args.token)
-  if args.ca_certificate:
-    kargs.append('--certificate-authority='+args.ca_certificate)
-  if args.namespace:
-    kargs.append('--namespace='+args.namespace)
 
   if args.dry_run:
     kargs.append('--dry-run')
