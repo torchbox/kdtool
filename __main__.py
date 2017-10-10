@@ -19,7 +19,21 @@ from os import environ
 from sys import stdout, stderr, exit
 from passlib.hash import md5_crypt
 
+class PrintVersion(argparse.Action):
+  def __call__(self, parser, namespace, values, option_string):
+    try:
+        import version
+        print('gitlab-kube-deploy version {}, {}.'.format(
+                        version.__version__, version.__info__))
+    except ImportError:
+        print('gitlab-kube-deploy, development build or manual installation.')
+    exit(0)
+
 parser = argparse.ArgumentParser(description='Deploy Kubernetes applications')
+parser.add_argument('-V', '--version', nargs=0, action=PrintVersion,
+    help="Type program version and exit")
+parser.add_argument('-R', '--rollout-status', action='store_true',
+    help='Wait for application rollout to complete and print status')
 parser.add_argument('-N', '--namespace', type=str, default="default",
     help='Kubernetes namespace to deploy in')
 parser.add_argument('-S', '--server', type=str, metavar='URL',

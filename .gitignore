@@ -1,2 +1,6 @@
 *.swp
 /.kube
+/__pycache__
+/deploy.pyz
+/version.py
+/_dist
