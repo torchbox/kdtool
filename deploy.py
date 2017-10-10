@@ -260,20 +260,25 @@ else:
     # already exists.  This is not a very good check because any failure of
     # kubectl will be treated as the database not existing, but it will do to
     # make deployments work until the Kubernetes bug is fixed.
-    stdout.write('checking if database already exists (bug #53379 workaround)...\n')
-    kargs = get_kubectl_args(args)
-    kargs.extend([ 'get', 'database', args.name ])
-    kubectl = subprocess.Popen(kargs,
-      stdin=subprocess.DEVNULL,
-      stdout=subprocess.DEVNULL,
-      stderr=subprocess.DEVNULL)
-    kubectl.communicate()
+    provision_db = True
 
-    if kubectl.returncode == 0:
-      stdout.write('database exists; will not replace\n')
-    else:
-      stdout.write('database does not exist; will create\n')
+    if args.undeploy == False:
+      stdout.write('checking if database already exists (bug #53379 workaround)...\n')
+      kargs = get_kubectl_args(args)
+      kargs.extend([ 'get', 'database', args.name ])
+      kubectl = subprocess.Popen(kargs,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL)
+      kubectl.communicate()
 
+      if kubectl.returncode == 0:
+        stdout.write('database exists; will not replace\n')
+        provision_db = False
+      else:
+        stdout.write('database does not exist; will create\n')
+
+    if provision_db:
       items.append({
         'apiVersion': 'torchbox.com/v1',
         'kind': 'Database',
