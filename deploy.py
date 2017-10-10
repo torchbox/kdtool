@@ -34,6 +34,7 @@ parser.add_argument('-G', '--gitlab', action='store_true', help="Configure Kuber
 parser.add_argument('-H', '--hostname', type=str, action='append', default=[], help='Hostname to expose the application on')
 parser.add_argument('-A', '--acme', action='store_true', help='Issue Let\'s Encrypt (ACME) TLS certificate')
 parser.add_argument('-M', '--manifest', type=str, metavar='FILE', help='Deploy from Kubernetes manifest with environment substitution')
+parser.add_argument('-K', '--kubectl', type=str, metavar='PATH', default='/usr/local/bin/kubectl', help='Location of kubectl binary')
 parser.add_argument('-r', '--replicas', type=int, default=1, help="Number of replicas to create")
 parser.add_argument('-P', '--image-pull-policy', type=str, choices=('IfNotPresent', 'Always'), default='IfNotPresent', help="Image pull policy")
 parser.add_argument('-e', '--env', type=str, action='append', default=[], metavar='VARNAME=VALUE', help="Set environment variable")
@@ -438,7 +439,7 @@ else:
 if args.json:
   print(spec)
 else:
-  kargs = ['/usr/local/bin/kubectl']
+  kargs = [ args.kubectl ]
 
   if args.undeploy:
     kargs.append('delete')

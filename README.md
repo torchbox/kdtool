@@ -33,6 +33,11 @@ configured in Gitlab.
 
 The following options are accepted:
 
+General options:
+
+* `-K path, --kubectl=path`: Specify the location of `kubectl` (default:
+  `/usr/local/bin/kubectl`).
+
 Authentication options:
 
 * `-G, --gitlab`: Take Kubernetes cluster details from Gitlab environment
