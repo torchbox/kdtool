@@ -63,6 +63,22 @@ labels = {
   'app': args.name,
 }
 
+# Return a kubectl command line to connect to the cluster based on our
+# arguments.
+def get_kubectl_args(args):
+  kargs = [ args.kubectl ]
+
+  if args.server:
+    kargs.append('--server='+args.server)
+  if args.token:
+    kargs.append('--token='+args.token)
+  if args.ca_certificate:
+    kargs.append('--certificate-authority='+args.ca_certificate)
+  if args.namespace:
+    kargs.append('--namespace='+args.namespace)
+
+  return kargs
+
 def strip_hostname(hostname):
   # Strip https?:// from a hostname so --hostname=<URL> works.
   return re.sub(r"^https?://([^/]*)(/.*)?$", r'\1', hostname)
@@ -237,19 +253,40 @@ else:
 
 # Database
   if args.database is not None:
-    items.append({
-      'apiVersion': 'torchbox.com/v1',
-      'kind': 'Database',
-      'metadata': {
-        'namespace': args.namespace,
-        'name': args.name,
-      },
-      'spec': {
-        'class': 'default',
-        'secretName': args.name+'-database',
-        'type': args.database,
-      },
-    })
+    # Due to Kubernetes bug #53379 (https://github.com/kubernetes/kubernetes/issues/53379)
+    # we cannot unconditionally include the database in the manifest; it will
+    # fail to apply correctly when the database provisioner is using CRD
+    # instead of TPR.  As a workaround, attempt to check whether the database
+    # already exists.  This is not a very good check because any failure of
+    # kubectl will be treated as the database not existing, but it will do to
+    # make deployments work until the Kubernetes bug is fixed.
+    stdout.write('checking if database already exists (bug #53379 workaround)...\n')
+    kargs = get_kubectl_args(args)
+    kargs.extend([ 'get', 'database', args.name ])
+    kubectl = subprocess.Popen(kargs,
+      stdin=subprocess.DEVNULL,
+      stdout=subprocess.DEVNULL,
+      stderr=subprocess.DEVNULL)
+    kubectl.communicate()
+
+    if kubectl.returncode == 0:
+      stdout.write('database exists; will not replace\n')
+    else:
+      stdout.write('database does not exist; will create\n')
+
+      items.append({
+        'apiVersion': 'torchbox.com/v1',
+        'kind': 'Database',
+        'metadata': {
+          'namespace': args.namespace,
+          'name': args.name,
+        },
+        'spec': {
+          'class': 'default',
+          'secretName': args.name+'-database',
+          'type': args.database,
+        },
+      })
 
     environment.append({
       'name': 'DATABASE_URL',
@@ -439,21 +476,12 @@ else:
 if args.json:
   print(spec)
 else:
-  kargs = [ args.kubectl ]
+  kargs = get_kubectl_args(args)
 
   if args.undeploy:
     kargs.append('delete')
   else:
     kargs.append('apply')
-
-  if args.server:
-    kargs.append('--server='+args.server)
-  if args.token:
-    kargs.append('--token='+args.token)
-  if args.ca_certificate:
-    kargs.append('--certificate-authority='+args.ca_certificate)
-  if args.namespace:
-    kargs.append('--namespace='+args.namespace)
 
   if args.dry_run:
     kargs.append('--dry-run')
