@@ -84,6 +84,12 @@ Application options:
 * `--memory-limit`: Set Kubernetes memory limit.
 * `--cpu-request`: Set Kubernetes CPU request.
 * `--cpu-limit`: Set Kubernetes CPU limit.
+* `--strategy=TYPE`: set Deployment
+  [update strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy).
+  `rollingupdate` will replace each replica one at a time, enabling
+  zero-downtime deployments.  `recreate` will delete all pods, then create new
+  pods to replace them; this will cause downtime during the deployment.  The
+  default is `rollingupdate`.
 
 Service options:
 

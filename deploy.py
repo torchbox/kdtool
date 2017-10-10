@@ -55,6 +55,7 @@ parser.add_argument('--memory-request', type=str, default='none', help='Required
 parser.add_argument('--memory-limit', type=str, default='none', help='Memory limit')
 parser.add_argument('--cpu-request', type=float, default=0, help="Number of dedicated CPU cores")
 parser.add_argument('--cpu-limit', type=float, default=0, help='CPU core use limit')
+parser.add_argument('--strategy', type=str, choices=('rollingupdate', 'recreate'), default='rollingupdate', help='Deployment update strategy')
 parser.add_argument('image', type=str, help='Docker image to deploy')
 parser.add_argument('name', type=str, help='Application name')
 args = parser.parse_args()
@@ -370,7 +371,7 @@ else:
     app_container['resources']['requests']['memory'] = humanfriendly.parse_size(args.memory_request, binary=True)
   containers.append(app_container)
 
-  items.append({
+  deployment = {
     'apiVersion': 'extensions/v1beta1',
     'kind': 'Deployment',
     'metadata': {
@@ -383,13 +384,6 @@ else:
       'selector': {
         'matchLabels': labels,
       },
-      'strategy': {
-        'type': 'RollingUpdate',
-        'rollingUpdate': {
-          'maxSurge': 1,
-          'maxUnavailable': 0,
-        },
-      },
       'template': {
         'metadata': {
           'labels': labels,
@@ -400,7 +394,22 @@ else:
         },
       },
     },
-  })
+  }
+
+  if args.strategy == 'rollingupdate':
+      deployment['spec']['strategy'] = {
+        'type': 'RollingUpdate',
+        'rollingUpdate': {
+          'maxSurge': 1,
+          'maxUnavailable': 0,
+        },
+      }
+  else:
+      deployment['spec']['strategy'] = {
+        'type': 'Recreate',
+      }
+
+  items.append(deployment)
 
   items.append({
     'apiVersion': 'v1',
