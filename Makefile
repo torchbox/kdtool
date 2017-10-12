@@ -42,4 +42,8 @@ docker-build:
 docker-push:
 	docker push ${REPOSITORY}:${TAG}
 
+testing:
+	${MAKE} TAG=testing docker-build
+	${MAKE} TAG=testing docker-push
+
 .PHONY: default dist build push version.py

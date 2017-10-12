@@ -24,7 +24,6 @@ def configure(args):
     if args.server:
         config.host = args.server
     if args.token:
-        print(args.token)
         config.api_key['authorization'] = "bearer " + args.token
     if args.ca_certificate:
         config.ssl_ca_cert = args.ca_certificate

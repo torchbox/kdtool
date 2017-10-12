@@ -40,7 +40,7 @@ parser.add_argument('-V', '--version', nargs=0, action=PrintVersion,
     help="Type program version and exit")
 parser.add_argument('-K', '--kubectl', type=str, metavar='PATH',
     help='Location of kubectl binary')
-parser.add_argument('-n', '--namespace', type=str, default="default",
+parser.add_argument('-n', '--namespace', type=str,
     help='Kubernetes namespace to deploy in')
 parser.add_argument('-S', '--server', type=str, metavar='URL',
     help="Kubernetes API server URL")
@@ -73,6 +73,15 @@ if args.kubectl is None:
     stderr.write('could not find kubectl executable anywhere in $PATH.\n')
     stderr.write('install kubectl in $PATH or pass -K/path/to/kubectl.\n')
     exit(1)
+
+# The Python client doesn't seem to pick up the namespace from kubeconfig,
+# which breaks GitLab's automatic configuration.  Try to guess what it should
+# be.
+if args.namespace is None:
+    if 'KUBE_NAMESPACE' in environ:
+        args.namespace = environ['KUBE_NAMESPACE']
+    else:
+        args.namespace = 'default'
 
 # Check for GitLab mode.
 if args.gitlab:

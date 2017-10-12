@@ -74,6 +74,12 @@ def status(args):
             error
         ))
 
+        for container in rs['spec']['template']['spec']['containers']:
+            stdout.write("        container {0}: image {1}\n".format(
+                container['name'],
+                container['image'],
+            ))
+
         for error in errors:
             stdout.write("        {0}\n".format(error))
 
