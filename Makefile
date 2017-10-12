@@ -6,10 +6,10 @@
 # freely. This software is provided 'as-is', without any express or implied
 # warranty.
 
-VERSION?=	1.7.5-dev
+VERSION?=	1.8.0-dev
 PYTHON?=	python3
 PIP?=		pip3
-REPOSITORY?=	torchbox/gitlab-kube-deploy
+REPOSITORY?=	torchbox/kdtool
 TAG?=		latest
 
 # Debian has broken 'pip install --target'.  The fix makes the command
@@ -23,23 +23,23 @@ version.py: Makefile make_version.py
 	${PYTHON} make_version.py $(VERSION)
 
 dist: version.py
-	rm -rf _dist deploy.pyz
+	rm -rf _dist kdtool.pyz
 	mkdir _dist
 	if test "${BROKEN_DEBIAN}" = "yes"; then \
-		pip3 install --system --no-compile --target _dist -r requirements.txt; \
+		${PIP} install --system --no-compile --target _dist -r requirements.txt; \
 	else \
-		pip3 install --no-compile --target _dist -r requirements.txt; \
+		${PIP} install --no-compile --target _dist -r requirements.txt; \
 	fi
 	cp -r *.py _dist/
 	rm -rf _dist/*.egg-info _dist/*.dist-info
-	${PYTHON} -m zipapp -p "/usr/bin/env python3" -o deploy.pyz _dist
-	chmod 755 deploy.pyz
-	@ls -l deploy.pyz
+	${PYTHON} -m zipapp -p "/usr/bin/env python3" -o kdtool.pyz _dist
+	chmod 755 kdtool.pyz
+	@ls -l kdtool.pyz
 
-docker-build: dist
+docker-build:
 	docker build -t ${REPOSITORY}:${TAG} .
 
 docker-push:
 	docker push ${REPOSITORY}:${TAG}
 
-.PHONY: default dist build push
+.PHONY: default dist build push version.py

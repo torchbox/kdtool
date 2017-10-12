@@ -1,2 +1,4 @@
 humanfriendly
 passlib
+PyYAML
+kubernetes==3.0.0

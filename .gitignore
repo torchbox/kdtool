@@ -1,7 +1,7 @@
 *.swp
 /.kube
 /__pycache__
-/deploy.pyz
+/kdtool.pyz
 /version.py
 /_dist
 /venv

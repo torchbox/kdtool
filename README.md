@@ -1,65 +1,126 @@
-# Gitlab Kubernetes deploy tool
+# Kubernetes deployment tool
 
-This is a helper container for deploying applications on Kubernetes, with
-emphasis on deploying from Gitlab and other CI applications.  It provides a
-container with `kubectl` installed, and a tool called `deploy` that simplifies
-calling kubectl from CI jobs.
+Note: Prior to version 1.8.0-1, kdtool was known as gitlab-kube-deploy.  It has
+been renamed as its scope has expanded and it's no longer specific to GitLab.
 
-`deploy` can deploy simple applications without needing a manifest, and it can
-simplify manifests for more complicated applications.
+`kdtool` is a utility for deploying applications and interacting with deployed
+applications on Kubernetes, with an emphasis on deploying from GitLab and other 
+CI applications.  It can be installed and used standalone from the command 
+line, or as a container image in Docker-based CI workflows.
 
-To use the Gitlab integration, you must have set up Kubernetes integration for
-your project in Gitlab, which is documented
-[here](https://docs.gitlab.com/ce/user/project/integrations/kubernetes.html).
+`kdtool` can deploy simple applications without needing a manifest.  Based on
+command-line options, it can provision environment variables (via Secrets or
+ConfigMaps), Deployments, Services and Ingresses, as well as persistent volumes
+and databases (with an
+[external database controller](https://github.com/torchbox/k8s-database-controller/)),
+ACME/Let's Encrypt TLS certificates (with
+[kube-lego](https://github.com/jetstack/kube-lego)) and HTTP authentication.
 
-You can also use this container from outside Gitlab if you provide your own
-credentials (or, if running in Kubernetes, use the pod's service credentials).
+`kdtool` can simplify manifests for more complicated applications, providing 
+template variable substitution to deploy several different copies of an 
+application (for example, a staging site and any number of review apps) from 
+a single manifest.
+
+Even if you don't use `kdtool` to deploy your application, its `shell` command
+makes it easier to interact with running applications, e.g. to debug problems,
+copy files from to or from the application, or connect to the application's
+database.  `kdtool` can start a shell (or any other command) using the same 
+image, environment variables, volume mounts, and other configuration as any 
+existing deployment, using a single command.
+
+`kdtool status` provides an overview of a Deployment, its ReplicaSets and their
+pods, to make problems with deployments easier to diagnose without having to
+examine each pod or ReplicaSet individually.
 
 ## Screenshot
 
+Use it from GitLab CI:
+
 ![A screenshot of a Gitlab CI build showing deploy being used](deploy.png)
 
-## Simple applications
-
-You can use `deploy` to deploy a simple application without creating a manifest.
-To deploy the built image on "www.mysite.com" from `.gitlab-ci.yml`:
+Or from the command line:
 
 ```
-deploy -G --hostname=www.mysite.com $CI_REGISTRY_IMAGE:$CI_BUILD_REF $CI_ENVIRONMENT_SLUG
+% kdtool deploy -H testapp.example.com --port=8080 gcr.io/google_containers/echoserver:1.4 testapp
+deployment "testapp" created
+service "testapp" created
+ingress "testapp" created
+% curl -sSi http://testapp.example.com
+HTTP/1.1 200 OK
+...
 ```
 
-This will create a Deployment, Service and Ingress in the Kubernete namespace
-configured in Gitlab.
+## Installation
 
-The following options are accepted:
+TODO.
 
-General options:
+## Using with GitLab CI
 
-* `-K path, --kubectl=path`: Specify the location of `kubectl` (default:
-  `/usr/local/bin/kubectl`).
+Since GitLab 9.4, no additional configuration is required for use with GitLab.
+Use the Docker image `torchbox/kdtool:latest` in your CI job and invoke
+`kdtool deploy ...` as normal.
 
-Authentication options:
+Prior to GitLab 9.4, you must use `kdtool --gitlab deploy ...` to pick up the
+authentication configuration.
 
-* `-G, --gitlab`: Take Kubernetes cluster details from Gitlab environment
- variables.  (Replaces `--namespace`, `--server`, `--ca-certificate` and
- `--token`.)
-* `-N ns, --namespace=ns`: Set the Kubernetes namespace to deploy in. Default:
+Either way, kdtool requires that you have
+[set up Kubernetes integration](https://docs.gitlab.com/ce/user/project/integrations/kubernetes.html)
+for your GitLab project.
+
+## General options
+
+These options affect the overall behaviour of kdtool and how it connects to
+your Kubernetes cluster.  If you already have a working kubeconfig (e.g. for
+kubectl), you won't normally need any of these options except `--namespace`.
+
+* `-n ns, --namespace=ns`: Set the Kubernetes namespace to operate in. Default:
   `default`.
-* `-S url, --server=url`: Set the URL of the Kubernetes API server.  No
-  default, but kubectl itself defaults to http://localhost:8080.
+* `-K path, --kubectl=path`: Specify the location of `kubectl` (default:
+  autodetect).
+* `-G, --gitlab`: Take Kubernetes cluster details from GitLab environment
+ variables.  (Replaces `--namespace`, `--server`, `--ca-certificate` and
+ `--token`; unnecessary since GitLab 9.4.)
+* `-S url, --server=url`: Set the URL of the Kubernetes API server (default:
+  `http://localhost:8080`).
 * `-T token, --token=token`: Set Kubernetes authentication token.  This can be a
   user token, a serviceaccount JWT token or whatever.  No default.
 * `-C path, --ca-certificate=path`: Set Kubernetes API server CA certificate.
   No default.
 
-If you're using Gitlab CI with Kubernetes integration, specify `--gitlab` and
-none of the other options.
+If you're running in-cluster and want to authenticate with the pod service
+account credentials, do not specify any authentication options; kubectl will
+pick up the service account details from the pod.
 
-If you want to authenticate with the pod service account credentials, do not
-specify any authentication options; kubectl will pick up the service account
-details from the pod.
+## Simple applications
 
-Application options:
+You can use `kdtool deploy` to deploy a simple application without creating a
+manifest.  To deploy the image "myapp:latest" on "www.mysite.com":
+
+```
+kdtool deploy --hostname=www.mysite.com myapp:latest myapp
+```
+
+In a GitLab CI job, you can take the image and deployment name from environment
+variables:
+
+```
+kdtool deploy --hostname=www.mysite.com $CI_REGISTRY_IMAGE:$CI_BUILD_REF $CI_ENVIRONMENT_SLUG
+```
+
+This will create a Deployment, Service and Ingress in the Kubernete namespace
+configured in Gitlab.
+
+### Undeploying
+
+Specify `-U` / `--undeploy` to delete all the resources that would have been 
+created if the command was invoked without this option.  When undeploying an 
+application, you should specify the same options you did when creating it, such 
+as `--hostname`, `--database`, `--volume`, etc., so that kdtool knows what to 
+delete.
+
+### Application options
+
+These options to `kdtool deploy` control how the application will be deployed.
 
 * `-H HOST, --hostname=HOST`: create an Ingress resource to route requets for
   the given hostname to the application.  Providing a URL will also work, but
@@ -91,7 +152,7 @@ Application options:
   pods to replace them; this will cause downtime during the deployment.  The
   default is `rollingupdate`.
 
-Service options:
+### Service options
 
 * `-v NAME:PATH, --volume=NAME:PATH`: Create a Persistent Volume Claim called
   `NAME` and mount it at `PATH`.  For this to work, your cluster must have a
@@ -99,31 +160,23 @@ Service options:
   volume, which means it does work with `--replicas` but does not work with GCE
   or AWS volumes.  (It does work with NFS, CephFS, GlusterFS, etc.)
 * `--database=TYPE`: Attach a persistent database of the given type, which
-  should be `mysql` or `postgresql`.  This is Torchbox-specific and won't work
-  elsewhere, although we hope to open source the controller that makes this work
-  soon.  This is fully compatible with `--replicas`.
+  should be `mysql` or `postgresql`.  This requires the Torchbox
+  [database controller](https://github.com/torchbox/k8s-database-controller).
+  Database connection details will be placed in `$DATABASE_URL`.
 * `--postgres=VERSION` (e.g. `--postgres=9.6`; EXPERIMENTAL, UNTESTED):
-  Deploy a PostgreSQL container alongside the application and configure
+  Deploy a PostgreSQL sidecar container alongside the application and configure
   `$DATABASE_URL` with the access details.  The PostgreSQL data is stored in a
   PVC, so this requires that your cluster has a functional PVC provisioner.  The
   PVC will be deleted when the application is undeployed.  This is intended for
   review apps, not production sites.  **This will not work with --replicas**.
-  (Well, it will, but every replica will get its own database.)
 * `--redis=MEMORY` (e.g. `--redis=64m`; EXPERIMENTAL, UNTESTED): Deploy a Redis
-  container alongside the application and set `$CACHE_URL` to its location.
-  Data stored in Redis is not persisted and the container is deleted when the
-  application is undeployed.  This is intended for review apps, not
+  sidecar container alongside the application and set `$CACHE_URL` to its
+  location.  Data stored in Redis is not persisted and the container is deleted
+  when the application is undeployed.  This is intended for review apps, not
   production sites.  If used with `--replicas`, every replica will get its own
-  Redis instance.
+  Redis instance, which is probably not what you want.
 
-Undeploy options:
-
-* `-U, --undeploy`: Delete all the resources that would have been created if
-  the command was invoked without this option.  When undeploying an application,
-  you should specify the same options you did when creating it, such as
-  `--hostname`, `--database`, `--volume`, etc., so that it knows what to delete.
-
-HTTP authentication flags:
+### HTTP authentication options
 
 * `--htauth-user=USERNAME:PASSWORD`: Require HTTP basic authentication using
   this username and plaintext password.  This may be specified multiple times.
@@ -135,9 +188,9 @@ HTTP authentication flags:
   `any`, either is sufficient for access.
 
 Support for HTTP authentication varies greatly among Kubernetes Ingress
-controllers.  As far as I know, the GKE Ingress controller doesn't support it at
-all.  The nginx controller supports all the options except `--htauth-satisfy`.
-The only controller that supports `--htauth-satisfy` is
+controllers.  As far as I know, the GKE/GCE Ingress controller doesn't support
+it at all.  The nginx controller supports all the options except 
+`--htauth-satisfy`.  The only controller that supports `--htauth-satisfy` is 
 [Traffic Server](https://github.com/torchbox/k8s-ts-ingress).
 
 This authentication is not intended to be secure: it accepts passwords in
@@ -149,7 +202,7 @@ application-level authentication.
 
 Use Gitlab dynamic environments to deploy any branch at
 `https://<branchname>.myapp-staging.com`, except for `master` which is
-deployed at `https://www.myapp.com/`:
+deployed at `https://www.myapp.com/` with two replicas:
 
 ```
 ---
@@ -176,9 +229,9 @@ deploy_production:
   environment:
     name: $CI_BUILD_REF_NAME
     url: https://www.myapp.com
-  image: torchbox/gitlab-kube-deploy:latest
+  image: torchbox/kdtool:latest
   script:
-  - deploy -G -r2 -A -H www.myapp.com $IMAGE_TAG $CI_ENVIRONMENT_SLUG
+  - kdtool deploy -r2 -A -H www.myapp.com $IMAGE_TAG $CI_ENVIRONMENT_SLUG
 
 deploy_review:
   stage: deploy
@@ -192,7 +245,7 @@ deploy_review:
     on_stop: undeploy_review
   image: torchbox/gitlab-kube-deploy:latest
   script:
-  - deploy -G -A -H $CI_ENVIRONMENT_URL $IMAGE_TAG $CI_ENVIRONMENT_SLUG
+  - kdtool deploy -A -H $CI_ENVIRONMENT_URL $IMAGE_TAG $CI_ENVIRONMENT_SLUG
 
 undeploy_review:
   stage: deploy
@@ -210,8 +263,8 @@ undeploy_review:
 
 ## Custom manifests
 
-`deploy`'s automatic manifest generation isn't intended to cover every possible
-use case.  If you like, you can provide your own manifest; `deploy` will do
+kdtool's automatic manifest generation isn't intended to cover every possible
+use case.  If you like, you can provide your own manifest; kdtool will do
 variable substitution inside the manifest.
 
 Specifically, any string `$varname` or `${varname}` in the manifest will be
@@ -226,6 +279,8 @@ Here is an example manifest that assumes `DATABASE_URL` and `SECRET_KEY` have
 been set as Gitlab secrets:
 
 ```
+---
+
 apiVersion: v1
 kind: Secret
 metadata:
@@ -241,8 +296,8 @@ data:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: $CI_ENVIRONMENT_SLUG
   namespace: $KUBE_NAMESPACE
+  name: $CI_ENVIRONMENT_SLUG
 spec:
   replicas: 1
   strategy:
@@ -318,5 +373,52 @@ deploy_production:
     url: https://www.myapp.com
   image: torchbox/gitlab-kube-deploy:latest
   script:
-  - deploy -G --manifest=deployment.yaml $IMAGE_TAG $CI_ENVIRONMENT_SLUG
+  - kdtool deploy --manifest=deployment.yaml $IMAGE_TAG $CI_ENVIRONMENT_SLUG
+```
+
+## Shell mode
+
+Use `kdtool shell` to start a shell for a deployment:
+
+```
+kdtool shell myapp
+```
+
+The argument should be the name of the deployment.  Environment variables and
+volume mounts will be configured from the deployment, so the application's data
+and configuration will be available in the shell.
+
+By default, the application's image will be used for the shell.  To use a
+different image, use `-i` / `--image`:
+
+```
+kdtool shell -i fedora:latest myapp
+```
+
+To run a different shell, use `-c` / `--command`:
+
+```
+kdtool shell -c /bin/zsh myapp
+```
+
+To run a non-interactive command, use `kdtool exec`:
+
+```
+kdtool exec myapp pg_dump '$(DATABASE_URL)'
+```
+
+## Status
+
+Use `kdtool status` to show the status for a deployment.  kdtool will attempt
+to detect errors and include them in the output:
+
+```
+% kdtool status testapp
+deployment testapp: 1 replica(s), current generation 5
+  2 active replica sets (* = current, ! = error):
+    *!testapp-54d6fdb796: generation 5, 1 replicas configured, 0 ready
+        pod testapp-54d6fdb796-94pck: Pending
+          ImagePullBackOff: Back-off pulling image "torchbox/invalid-image:latest"
+      testapp-755c4c48f: generation 4, 1 replicas configured, 1 ready
+        pod testapp-755c4c48f-lxn57: Running
 ```
