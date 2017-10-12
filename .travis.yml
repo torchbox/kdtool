@@ -1,7 +1,11 @@
-language: c
+language: python
 sudo: required
 services:
 - docker
+addons:
+  apt:
+    packages:
+    - docker-ce
 script:
 - ./travis-build.sh
 env:
