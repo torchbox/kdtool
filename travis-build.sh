@@ -13,7 +13,13 @@ set -e
 printf '####################################################################\n'
 printf '>>> Building zipapp.\n\n'
 
-make dist
+if [ -n "$TRAVIS_TAG" ]; then
+	VERSION="$(echo "${TRAVIS_TAG}" | sed -e 's/^v//')"
+else
+	VERSION="git${TRAVIS_COMIT}"
+fi
+
+make dist VERSION="${VERSION}"
 
 printf '####################################################################\n'
 printf '>>> Building Docker image.\n\n'
