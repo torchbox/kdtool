@@ -11,19 +11,28 @@
 set -e
 
 printf '####################################################################\n'
+printf '>>> Building zipapp.\n\n'
+
+make dist
+
+printf '####################################################################\n'
 printf '>>> Building Docker image.\n\n'
+
 docker build --pull -t torchbox/kdtool:$COMMIT .
 
 if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
 	printf '####################################################################\n'
 	printf '>>> Pushing test release.\n\n'
+
 	# Push the latest build to the 'testing' tag.
 	docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
 	docker tag torchbox/kdtool:$COMMIT torchbox/kdtool:testing
 	docker push torchbox/kdtool:testing
 
 	# If this is a release, push the Docker image to Docker Hub.
-	if [ -a -n "$TRAVIS_TAG" ]; then
+	if [ -n "$TRAVIS_TAG" ]; then
+		cp kdtool.pyz kdtool-${TRAVIS_TAG}.pyz
+
 		printf '####################################################################\n'
 		printf '>>> Creating release.\n\n'
 

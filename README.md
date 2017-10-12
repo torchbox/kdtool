@@ -52,7 +52,25 @@ HTTP/1.1 200 OK
 
 ## Installation
 
-TODO.
+Download `kdtool.pyz` from the latest release and copy it to a convenient
+location, such as `/usr/local/bin/kdtool`.  This is a Python zipapp and requires
+Python 3.4 or later to run.
+
+Or, build from source:
+
+```
+% make dist
+% ./kdtool.pyz -h
+```
+
+Or, run from the Docker image:
+
+```
+% docker run --rm -ti torchbox/kdtool:latest -h
+```
+
+You don't need to install anything to use kdtool from GitLab CI; just specify
+the Docker image in the job.
 
 ## Using with GitLab CI
 
