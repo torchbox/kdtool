@@ -17,7 +17,9 @@ RUN	curl -Lo kubectl \
 
 FROM alpine:3.6
 
-COPY	--from=build /usr/src/deploy/deploy.pyz /usr/local/bin/deploy
+COPY	--from=build /usr/src/deploy/kdtool.pyz /usr/local/bin/kdtool
 COPY	--from=build /usr/src/deploy/kubectl /usr/local/bin/kubectl
 RUN	apk add --no-cache ca-certificates python3
-RUN	chmod 755 /usr/local/bin/deploy /usr/local/bin/kubectl
+RUN	chmod 755 /usr/local/bin/kdtool /usr/local/bin/kubectl
+
+ENTRYPOINT [ "/usr/local/bin/kdtool" ]
