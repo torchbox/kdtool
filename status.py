@@ -28,14 +28,17 @@ def status(args):
     except KeyError:
         generation = '?'
 
-    stdout.write(
-        "deployment {0}: {1} replica(s), current generation {2}\n".format(
+    stdout.write("deployment {0}/{1}:\n".format(
+            dp['metadata']['namespace'],
             dp['metadata']['name'],
-            dp['spec']['replicas'],
-            generation,
     ))
+    stdout.write("  current generation is {0}, {2} replicas configured, {1} active replica sets\n".format(
+        generation,
+        len(replicasets),
+        dp['spec']['replicas'],
+    ))
+    stdout.write("\n  active replicasets (status codes: * current, ! error):\n")
 
-    stdout.write("  {0} active replica sets (* = current, ! = error):\n".format(len(replicasets)))
     for rs in replicasets:
         pods = deployment.get_rs_pods(rs)
         error = ' '
@@ -65,7 +68,7 @@ def status(args):
         except KeyError:
             pass
 
-        stdout.write("    {4}{5}generation {1} ({0}): {2} replicas configured, {3} ready\n".format(
+        stdout.write("    {4}{5}generation {1} is replicaset {0}, {2} replicas configured, {3} ready\n".format(
             rs['metadata']['name'],
             revision,
             rs['spec']['replicas'],
