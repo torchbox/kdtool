@@ -16,7 +16,9 @@ config = kubernetes.client.Configuration()
 # configure: set configuration based on args.
 def configure(args):
     try:
-        kubernetes.config.kube_config.load_kube_config(client_configuration=config)
+        kubernetes.config.kube_config.load_kube_config(
+            client_configuration=config,
+            context=args.context)
     except:
         stderr.write("warning: could not load kubeconfig\n")
         args.server = 'http://localhost:8080'

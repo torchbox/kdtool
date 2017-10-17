@@ -50,6 +50,8 @@ parser.add_argument('-C', '--ca-certificate', type=str,
     help="Kubernetes API server CA certificate")
 parser.add_argument('-G', '--gitlab', action='store_true',
     help="Configure Kubernetes from Gitlab CI")
+parser.add_argument('-c', '--context', type=str, metavar='CLUSTER',
+    help='Configuration context from kubeconfig')
 
 # Add commands and their options from modules.
 def add_commands(cmds):

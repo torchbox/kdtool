@@ -25,6 +25,8 @@ def get_kubectl_args(args):
         kargs.append('--certificate-authority='+args.ca_certificate)
     if args.namespace:
         kargs.append('--namespace='+args.namespace)
+    if args.context:
+        kargs.append('--context='+args.context)
 
     return kargs
 

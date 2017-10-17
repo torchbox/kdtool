@@ -3,34 +3,35 @@
 Note: Prior to version 1.8.0-1, kdtool was known as gitlab-kube-deploy.  It has
 been renamed as its scope has expanded and it's no longer specific to GitLab.
 
-`kdtool` is a utility for deploying applications and interacting with deployed
-applications on Kubernetes, with an emphasis on deploying from GitLab and other 
-CI applications.  It can be installed and used standalone from the command 
+kdtool is a utility for deploying applications and interacting with deployed
+applications on Kubernetes, with an emphasis on deploying from GitLab and other
+CI applications.  It can be installed and used standalone from the command
 line, or as a container image in Docker-based CI workflows.
 
-`kdtool` can deploy simple applications without needing a manifest.  Based on
-command-line options, it can provision environment variables (via Secrets or
-ConfigMaps), Deployments, Services and Ingresses, as well as persistent volumes
-and databases (with an
+kdtool can deploy simple applications without needing a manifest.  Based on
+command-line options, it can provision Deployments, Service and Ingresses,
+and configure environment variables (via Secrets or ConfigMaps), persistent
+volumes and databases (with an
 [external database controller](https://github.com/torchbox/k8s-database-controller/)),
-ACME/Let's Encrypt TLS certificates (with
+as well as ACME/Let's Encrypt TLS certificates (with
 [kube-lego](https://github.com/jetstack/kube-lego)) and HTTP authentication.
 
-`kdtool` can simplify manifests for more complicated applications, providing 
-template variable substitution to deploy several different copies of an 
-application (for example, a staging site and any number of review apps) from 
-a single manifest.
+For more complicated applications, kdtool can simplify YAML (or JSON)
+manifests, providing environment-based template variable substitution to deploy
+several different copies of an application (for example, a staging site and any
+number of review apps) from a single manifest.  When deploying from CI, you can
+substitute `$IMAGE` in the manifest to easily deploy the image that was built.
 
-Even if you don't use `kdtool` to deploy your application, its `shell` command
+Even if you don't use kdtool to deploy your application, its `shell` command
 makes it easier to interact with running applications, e.g. to debug problems,
 copy files from to or from the application, or connect to the application's
-database.  `kdtool` can start a shell (or any other command) using the same 
-image, environment variables, volume mounts, and other configuration as any 
+database.  kdtool can start a shell (or any other command) using the same
+image, environment variables, volume mounts, and other configuration as any
 existing deployment, using a single command.
 
-`kdtool status` provides an overview of a Deployment, its ReplicaSets and their
-pods, to make problems with deployments easier to diagnose without having to
-examine each pod or ReplicaSet individually.
+kdtool's `status` command provides an overview of a Deployment, its ReplicaSets
+and their pods, to make problems with deployments easier to diagnose without
+having to examine each pod or ReplicaSet individually.
 
 ## Screenshot
 
@@ -55,6 +56,10 @@ HTTP/1.1 200 OK
 Download `kdtool.pyz` from the latest release and copy it to a convenient
 location, such as `/usr/local/bin/kdtool`.  This is a Python zipapp and requires
 Python 3.4 or later to run.
+
+To use `kdtool deploy`, you must have `kubectl` installed.  If you have an
+existing kubeconfig file (e.g. `$HOME/.kube/config`, or specified in
+`$KUBECONFIG`), kdtool will take configuration from there by default.
 
 Or, build from source:
 
@@ -93,6 +98,8 @@ kubectl), you won't normally need any of these options except `--namespace`.
 
 * `-n ns, --namespace=ns`: Set the Kubernetes namespace to operate in. Default:
   `default`.
+* `-c ctx, --context=ctx`: Set the cluster context to use; the context must
+  exist in the loaded kubeconfig file.
 * `-K path, --kubectl=path`: Specify the location of `kubectl` (default:
   autodetect).
 * `-G, --gitlab`: Take Kubernetes cluster details from GitLab environment
@@ -130,10 +137,10 @@ configured in Gitlab.
 
 ### Undeploying
 
-Specify `-U` / `--undeploy` to delete all the resources that would have been 
-created if the command was invoked without this option.  When undeploying an 
-application, you should specify the same options you did when creating it, such 
-as `--hostname`, `--database`, `--volume`, etc., so that kdtool knows what to 
+Specify `-U` / `--undeploy` to delete all the resources that would have been
+created if the command was invoked without this option.  When undeploying an
+application, you should specify the same options you did when creating it, such
+as `--hostname`, `--database`, `--volume`, etc., so that kdtool knows what to
 delete.
 
 ### Application options
@@ -207,8 +214,8 @@ These options to `kdtool deploy` control how the application will be deployed.
 
 Support for HTTP authentication varies greatly among Kubernetes Ingress
 controllers.  As far as I know, the GKE/GCE Ingress controller doesn't support
-it at all.  The nginx controller supports all the options except 
-`--htauth-satisfy`.  The only controller that supports `--htauth-satisfy` is 
+it at all.  The nginx controller supports all the options except
+`--htauth-satisfy`.  The only controller that supports `--htauth-satisfy` is
 [Traffic Server](https://github.com/torchbox/k8s-ts-ingress).
 
 This authentication is not intended to be secure: it accepts passwords in
