@@ -11,6 +11,7 @@
 import subprocess, json, humanfriendly
 from base64 import b64encode
 from sys import stdin, stdout, stderr
+from os import environ
 from passlib.hash import md5_crypt
 
 import kubectl
