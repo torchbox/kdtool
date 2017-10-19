@@ -16,7 +16,7 @@ from sys import stdout, stderr, exit, argv
 
 from kubectl import find_kubectl
 
-import deploy, shell, status, kubeutil
+import deploy, undeploy, shell, status, kubeutil
 
 class PrintVersion(argparse.Action):
   def __call__(self, parser, namespace, values, option_string):
@@ -66,6 +66,7 @@ def add_commands(cmds):
 add_commands(deploy.commands)
 add_commands(shell.commands)
 add_commands(status.commands)
+add_commands(undeploy.commands)
 args = parser.parse_args(argv[1:])
 
 # Try to find kubectl.

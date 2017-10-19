@@ -137,11 +137,18 @@ configured in Gitlab.
 
 ### Undeploying
 
-Specify `-U` / `--undeploy` to delete all the resources that would have been
-created if the command was invoked without this option.  When undeploying an
-application, you should specify the same options you did when creating it, such
-as `--hostname`, `--database`, `--volume`, etc., so that kdtool knows what to
-delete.
+Use `kdtool undeploy <name>` to delete a deployment.  This will list the
+resource(s) that will be deleted and prompt for confirmation.
+
+To avoid the confirmation prompt, use `undeploy -f`.
+
+To delete all resources associated with the deployment, such as ingresses,
+databases and volumes, use `undeploy -A`.  The list of resources to delete is
+taken from an annotation added to the deployment at creation time, so you don't
+need to tell kdtool what to delete.
+
+Older versions supported a different undeploy command, `kdtool deploy --undeploy`.
+This is obsolete and should not be used.
 
 ### Application options
 

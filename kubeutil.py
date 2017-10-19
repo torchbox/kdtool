@@ -30,7 +30,7 @@ def configure(args):
     if args.ca_certificate:
         config.ssl_ca_cert = args.ca_certificate
 
-# get_client: return a Kubernetes client.
+# get_client: return a Kubernetes API client.
 def get_client():
     client = kubernetes.client.ApiClient(config=config)
     return client

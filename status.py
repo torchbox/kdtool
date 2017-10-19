@@ -9,6 +9,7 @@
 
 
 import json, kubernetes
+from kubernetes.client.apis import core_v1_api, extensions_v1beta1_api
 from sys import stdout, stderr
 
 import deployment, kubeutil
@@ -109,6 +110,97 @@ def status(args):
                             cs['state']['waiting']['reason'],
                             message,
                         ))
+
+    resources = None
+    try:
+        resources = json.loads(dp['metadata']['annotations']['kdtool.torchbox.com/attached-resources'])
+    except KeyError:
+        exit(0)
+    except ValueError as e:
+        stderr.write("warning: could not decode kdtool.torchbox.com/attached-resources annotation: {0}\n".format(str(e)))
+        exit(0)
+
+    if len(resources) == 0:
+        exit(0)
+
+    stdout.write("\nattached resources:\n")
+
+    client = kubeutil.get_client()
+    v1 = core_v1_api.CoreV1Api(client)
+    extv1beta1 = extensions_v1beta1_api.ExtensionsV1beta1Api(client)
+
+    services = [resource['name'] for resource in resources if resource['kind'] == 'service']
+    for svc_name in services:
+        service = v1.read_namespaced_service(svc_name, args.namespace)
+        stdout.write("  service {0}: selector is ({1})\n".format(
+            service.metadata.name,
+            ", ".join([ k+"="+v for k,v in service.spec.selector.items() ]),
+        ))
+        for port in service.spec.ports:
+            stdout.write("    port {0}: {1}/{2} -> {3}\n".format(
+                port.name,
+                port.port,
+                port.protocol,
+                port.target_port))
+
+    ingresses = [resource['name'] for resource in resources if resource['kind'] == 'ingress']
+
+    for ing_name in ingresses:
+        ingress = extv1beta1.read_namespaced_ingress(ing_name, args.namespace)
+        stdout.write("  ingress {0}:\n".format(ingress.metadata.name))
+        for rule in ingress.spec.rules:
+            stdout.write("    http[s]://{0} -> {1}/{2}:{3}\n".format(
+                rule.host,
+                ingress.metadata.namespace,
+                rule.http.paths[0].backend.service_name,
+                rule.http.paths[0].backend.service_port,
+            ))
+
+    volumes = [resource['name'] for resource in resources if resource['kind'] == 'volume']
+
+    for vol_name in volumes:
+        volume = v1.read_namespaced_persistent_volume_claim(vol_name, args.namespace)
+        if volume.status:
+            stdout.write("  volume {0}: mode is {1}, size {2}, phase {3}\n".format(
+                volume.metadata.name,
+                ",".join(volume.status.access_modes),
+                volume.status.capacity['storage'],
+                volume.status.phase,
+            ))
+        else:
+            stdout.write("  volume {0} is unknown (not provisioned)\n".format(
+                volume.metadata.name,
+            ))
+
+    databases = [resource['name'] for resource in resources if resource['kind'] == 'database']
+
+    for db_name in databases:
+        resource_path = ('/apis/torchbox.com/v1/namespaces/'
+                        + dp['metadata']['namespace']
+                        + '/databases/'
+                        + db_name)
+
+        header_params = {}
+        header_params['Accept'] = client.select_header_accept(['application/json'])
+        header_params['Content-Type'] = client.select_header_content_type(['*/*'])
+        header_params.update(kubeutil.config.api_key)
+
+        (resp, code, header) = client.call_api(
+                resource_path, 'GET', {}, {}, header_params, None, [], _preload_content=False)
+
+        database = json.loads(resp.data.decode('utf-8'))
+        if 'status' in database:
+            stdout.write("  database {0}: type {1}, phase {2} (on server {3})\n".format(
+                database['metadata']['name'],
+                database['spec']['type'],
+                database['status']['phase'],
+                database['status']['server'],
+            ))
+        else:
+            stdout.write("  database {0}: type {1}, unknown (not provisioned)\n".format(
+                database['metadata']['name'],
+                database['spec']['type'],
+            ))
 
 status.help = "show deployment status"
 status.arguments = (

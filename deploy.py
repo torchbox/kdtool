@@ -1,4 +1,3 @@
-#! /usr/bin/env python3
 # vim:set sw=4 ts=4 et:
 #
 # Copyright (c) 2016-2017 Torchbox Ltd.
@@ -147,6 +146,7 @@ def make_deployment(pod, args):
         'metadata': {
             'name': args.name,
             'namespace': args.namespace,
+            'annotations': {},
         },
         'spec': {
             'replicas': args.replicas,
@@ -391,6 +391,7 @@ def make_database(args):
 # make_manifest: create a manifest based on our arguments.
 def make_manifest(args):
     items = []
+    attached_resources = []
 
     pod = make_pod(args)
     app = make_app_container(args)
@@ -403,6 +404,10 @@ def make_manifest(args):
 
         app['volumeMounts'].append(pvcmount)
         pod['spec']['volumes'].append(pvcvolume)
+        attached_resources.append({
+            'kind': 'volume',
+            'name': pvc['metadata']['name'],
+        })
 
     # Add Secret environment variables
     if len(args.secret) > 0:
@@ -412,6 +417,10 @@ def make_manifest(args):
             'secretRef': {
                 'name': args.name,
             }
+        })
+        attached_resources.append({
+            'kind': 'secret',
+            'name': secret['metadata']['name'],
         })
 
     # Add (non-secret) environment variables
@@ -428,6 +437,10 @@ def make_manifest(args):
         (db_items, db_env) = make_database(args)
         items.extend(db_items)
         app['env'].append(db_env)
+        attached_resources.append({
+            'kind': 'database',
+            'name': args.name,
+        })
 
     # Add Redis container
     if args.redis_cache is not None:
@@ -442,10 +455,10 @@ def make_manifest(args):
         pod['spec']['volumes'].append(pg_volume)
         app['env'].append(pg_env)
         items.append(pg_pvc)
-
-    # Create our deployment last, so it can reference other resources.
-    deployment = make_deployment(pod, args)
-    items.append(deployment)
+        attached_resources.append({
+            'kind': 'volume',
+            'name': pg_pvc['metadata']['name'],
+        })
 
     # If any hostnames are configured, create a Service and some Ingresses.
     if len(args.hostname):
@@ -456,10 +469,36 @@ def make_manifest(args):
                 'protocol': 'TCP',
             }
         ]
-        items.append(make_service(args))
+
+        # Service
+        service = make_service(args)
+        items.append(service)
+        attached_resources.append({
+            'kind': 'service',
+            'name': service['metadata']['name'],
+        })
+
+        # Ingress
         (ingress, secrets) = make_ingress(args)
         items.append(ingress)
+        attached_resources.append({
+            'kind': 'ingress',
+            'name': ingress['metadata']['name'],
+        })
+
+        # Secrets (only present if using http authentication)
         items.extend(secrets)
+        attached_resources.extend([{
+            'kind': 'secret',
+            'name': secret['metadata']['name']
+        } for secret in secrets])
+
+    # Create our deployment last, so it can reference other resources.
+    deployment = make_deployment(pod, args)
+    deployment['metadata']['annotations']\
+        ['kdtool.torchbox.com/attached-resources'] = json.dumps(attached_resources)
+
+    items.append(deployment)
 
     # Convert our items array into a List.
     spec = {
