@@ -1,3 +1,6 @@
+# DEPRECATED
+This tool is no longer supported or expected to work.
+
 # Kubernetes deployment tool
 
 Note: Prior to version 1.8.0-1, kdtool was known as gitlab-kube-deploy.  It has
